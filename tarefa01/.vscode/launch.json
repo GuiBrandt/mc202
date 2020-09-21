@@ -5,7 +5,7 @@
             "name": "Make and debug project",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/megasena",
+            "program": "${workspaceFolder}/megasena",
             "cwd": "${workspaceFolder}",
             "externalConsole": false,
             "MIMode": "gdb",
