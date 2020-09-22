@@ -34,7 +34,8 @@ Aluno procura_velho_todas_turmas(Turma t[], int qtd_turmas);
 
 // A funcao recebe todoas as turmas e uma string,
 // retornando a quantidade de alunos que a string aparece em seu nome.
-int conta_substrings(Turma t[], int qtd_turmas, char *padrao);
+int conta_substrings(Turma t[], int qtd_turmas, char *padrao)
+    __attribute__((nonnull(3)));
 
 // Adiciona o aluno A na turma j, retornando a quantidade de alunos da turma j.
 int add_aluno(Turma t[], Aluno A, int j);
