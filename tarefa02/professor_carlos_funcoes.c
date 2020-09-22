@@ -23,11 +23,18 @@
  */
 int compara_data(Data lhs, Data rhs) __attribute_const__;
 int compara_data(Data lhs, Data rhs) {
-    if (lhs.ano < rhs.ano) return -1;
-    else if (lhs.mes < rhs.mes) return -1;
-    else if (lhs.dia < rhs.dia) return -1;
-    else if (lhs.ano == rhs.ano && lhs.mes == rhs.mes && lhs.dia == rhs.dia) return 0;
-    else return 1;
+    if (lhs.ano < rhs.ano) {
+        return -1;
+    } else if (lhs.ano == rhs.ano) {
+        if (lhs.mes < rhs.mes) {
+            return -1;
+        } else if (lhs.mes == rhs.mes) {
+            if (lhs.dia < rhs.dia) return -1;
+            else if (lhs.dia == rhs.dia) return 0;
+        }
+    }
+    
+    return 1;
 }
 
 /**
@@ -50,6 +57,8 @@ const Aluno* procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax) {
     const Aluno* novo = &turma.alunos[0];
 
     for (int i = 1; i < turma.qtd; i++) {
+        // A multiplicação serve para comparar os sinais, se forem iguais (produto >= 0)
+        // a comparação está de acordo
         if (compara_data(turma.alunos[i].nascimento, novo->nascimento) * minmax >= 0) {
             novo = &turma.alunos[i];
         }
@@ -76,6 +85,8 @@ const Aluno* procura_todas_turmas(Turma t[], int qtd_turmas, int minmax) {
     for (int i = 1; i < qtd_turmas; i++) {
         const Aluno* novo_na_turma = procura_na_turma(t, qtd_turmas, 1, minmax);
 
+        // A multiplicação serve para comparar os sinais, se forem iguais (produto >= 0)
+        // a comparação está de acordo
         if (compara_data(novo_na_turma->nascimento, novo->nascimento) * minmax >= 0) {
             novo = novo_na_turma;
         }
@@ -114,6 +125,7 @@ int tem_substring(char nome[15], const char* padrao)
     __attribute__((nonnull(2)));
 
 int tem_substring(char nome[15], const char* padrao) {
+    assert(padrao != 0);
 
     // Busca pela primera letra do padrão no nome
     int i_nome = 0;
@@ -137,6 +149,8 @@ int tem_substring(char nome[15], const char* padrao) {
 }
 
 int conta_substrings(Turma t[], int qtd_turmas, char *padrao) {
+    assert(padrao != 0);
+
     int contador = 0;
 
     for (int i = 0; i < qtd_turmas; i++) {
