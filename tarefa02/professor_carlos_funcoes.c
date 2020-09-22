@@ -23,18 +23,10 @@
  */
 int compara_data(Data lhs, Data rhs) __attribute_const__;
 int compara_data(Data lhs, Data rhs) {
-    if (lhs.ano < rhs.ano) {
-        return -1;
-    } else if (lhs.ano == rhs.ano) {
-        if (lhs.mes < rhs.mes) {
-            return -1;
-        } else if (lhs.mes == rhs.mes) {
-            if (lhs.dia < rhs.dia) return -1;
-            else if (lhs.dia == rhs.dia) return 0;
-        }
-    }
-    
-    return 1;
+    if (lhs.ano != rhs.ano) return lhs.ano < rhs.ano;
+    else if (lhs.mes != rhs.mes) return lhs.mes < rhs.mes;
+    else if (lhs.dia != rhs.dia) return lhs.mes < rhs.mes;
+    return 0;
 }
 
 /**
