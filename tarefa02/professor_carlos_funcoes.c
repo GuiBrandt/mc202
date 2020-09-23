@@ -19,14 +19,53 @@
  * @param lhs Lado esquerdo da comparação.
  * @param rhs Lado direito da comparação.
  * 
- * @returns -1 se lhs < rhs, 1 se lhs > rhs e 0 se forem iguais.
+ * @returns int < 0 se lhs < rhs, int > 0 se lhs > rhs e 0 se forem iguais.
  */
 int compara_data(Data lhs, Data rhs) __attribute_const__;
 int compara_data(Data lhs, Data rhs) {
-    if (lhs.ano != rhs.ano) return lhs.ano < rhs.ano;
-    else if (lhs.mes != rhs.mes) return lhs.mes < rhs.mes;
-    else if (lhs.dia != rhs.dia) return lhs.mes < rhs.mes;
+    if (lhs.ano != rhs.ano) return lhs.ano - rhs.ano;
+    else if (lhs.mes != rhs.mes) return lhs.mes - rhs.mes;
+    else if (lhs.dia != rhs.dia) return lhs.dia - rhs.dia;
     return 0;
+}
+
+/**
+ * Compara dois nomes/sobrenomes.
+ * 
+ * @param lhs Lado esquerdo da comparação.
+ * @param rhs Lado direito da comparação.
+ * 
+ * @returns -1 se lhs < rhs, 1 se lhs > rhs e 0 se forem iguais.
+ */
+int compara_string(const char lhs[15], const char rhs[15]) __attribute_const__;
+int compara_string(const char lhs[15], const char rhs[15]) {
+    for (int i = 0; i < 15; i++) {
+        if (lhs[i] < rhs[i]) return -1;
+        else if (lhs[i] > rhs[i]) return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * Compara dois alunos por nascimento, nome e sobrenome (em ordem
+ * lexicográfica).
+ * 
+ * @param lhs Lado esquerdo da comparação.
+ * @param rhs Lado direito da comparação.
+ * @param minmax MENOR (-1) => mais velho = menor, MAIOR (1) => mais velho = maior.
+ * 
+ * @returns -1 se lhs < rhs, 1 se lhs > rhs e 0 se forem iguais.
+ */
+int compara_aluno(Aluno, Aluno, int) __attribute_const__;
+int compara_aluno(Aluno lhs, Aluno rhs, int minmax) {
+    int cmp = minmax * compara_data(lhs.nascimento, rhs.nascimento);
+
+    // Se a data for igual, compara nome e depois sobrenome
+    if (cmp == 0) cmp = compara_string(lhs.nome, rhs.nome);
+    if (cmp == 0) cmp = compara_string(lhs.sobrenome, rhs.sobrenome);
+
+    return cmp;
 }
 
 /**
@@ -39,20 +78,17 @@ int compara_data(Data lhs, Data rhs) {
  * 
  * @return Ponteiro para o aluno mais novo ou mais velho na turma (não-nulo). 
  */
-const Aluno* procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax)
-    __attribute__((returns_nonnull));
-
-const Aluno* procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax) {
+Aluno procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax) {
     assert(j < qtd_turmas);
 
     Turma turma = t[j];
-    const Aluno* novo = &turma.alunos[0];
+    Aluno novo = turma.alunos[0];
 
-    for (int i = 1; i < turma.qtd; i++) {
-        // A multiplicação serve para comparar os sinais, se forem iguais (produto >= 0)
-        // a comparação está de acordo
-        if (compara_data(turma.alunos[i].nascimento, novo->nascimento) * minmax >= 0) {
-            novo = &turma.alunos[i];
+    for (int i = 1; i < turma.qtd; i++) {   
+        Aluno a = turma.alunos[i];
+
+        if (compara_aluno(a, novo, minmax) < 0) {
+            novo = a;
         }
     }
 
@@ -68,18 +104,13 @@ const Aluno* procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax) {
  * 
  * @return Ponteiro para o aluno mais novo ou mais velho de todas as turmas (não-nulo). 
  */
-const Aluno* procura_todas_turmas(Turma[], int, int)
-    __attribute__((returns_nonnull));
-
-const Aluno* procura_todas_turmas(Turma t[], int qtd_turmas, int minmax) {
-    const Aluno* novo = procura_na_turma(t, qtd_turmas, 0, minmax);
+Aluno procura_todas_turmas(Turma t[], int qtd_turmas, int minmax) {
+    Aluno novo = procura_na_turma(t, qtd_turmas, 0, minmax);
 
     for (int i = 1; i < qtd_turmas; i++) {
-        const Aluno* novo_na_turma = procura_na_turma(t, qtd_turmas, 1, minmax);
+        Aluno novo_na_turma = procura_na_turma(t, qtd_turmas, i, minmax);
 
-        // A multiplicação serve para comparar os sinais, se forem iguais (produto >= 0)
-        // a comparação está de acordo
-        if (compara_data(novo_na_turma->nascimento, novo->nascimento) * minmax >= 0) {
+        if (compara_aluno(novo_na_turma, novo, minmax) < 0) {
             novo = novo_na_turma;
         }
     }
@@ -88,19 +119,26 @@ const Aluno* procura_todas_turmas(Turma t[], int qtd_turmas, int minmax) {
 }
 
 Aluno procura_novo_na_turma(Turma t[], int qtd_turmas, int j) {
-    return *procura_na_turma(t, qtd_turmas, j, MENOR);
+    return procura_na_turma(t, qtd_turmas, j, MENOR);
 }
 
 Aluno procura_novo_todas_turmas(Turma t[], int qtd_turmas) {
-    return *procura_todas_turmas(t, qtd_turmas, MENOR);
+    return procura_todas_turmas(t, qtd_turmas, MENOR);
 }
 
 Aluno procura_velho_na_turma(Turma t[], int qtd_turmas, int j) {
-    return *procura_na_turma(t, qtd_turmas, j, MAIOR);
+    return procura_na_turma(t, qtd_turmas, j, MAIOR);
 }
 
 Aluno procura_velho_todas_turmas(Turma t[], int qtd_turmas) {
-    return *procura_todas_turmas(t, qtd_turmas, MAIOR);
+    return procura_todas_turmas(t, qtd_turmas, MAIOR);
+}
+
+int busca_letra(char nome[15], int inicio, char letra) {
+    for (int i = inicio; i < 15; i++) {
+        if (nome[i] == letra) return i;
+    }
+    return -1;
 }
 
 /**
@@ -117,32 +155,29 @@ int tem_substring(char nome[15], const char* padrao)
     __attribute__((nonnull(2)));
 
 int tem_substring(char nome[15], const char* padrao) {
-    assert(padrao != 0);
-
-    // Busca pela primera letra do padrão no nome
     int i_nome = 0;
-    while (i_nome < 15 && nome[i_nome] != padrao[0]) i_nome++;
 
-    if (i_nome < 15) {
+    do {
+        i_nome = busca_letra(nome, i_nome, padrao[0]);
+        if (i_nome == -1) return 0;
+
         // Se achar a primeira letra, continua comparando o padrão com o nome
         // a partir dali
         int i_padrao = 1;
         while (i_nome + i_padrao < 15 && padrao[i_padrao] != 0) {
-            if (nome[i_nome + i_padrao] != padrao[i_padrao]) return 0;
-            
+            if (nome[i_nome + i_padrao] != padrao[i_padrao]) break;
             i_padrao++;
         }
 
-        return padrao[i_padrao] == 0; // Se chegou no '\0', leu o padrão inteiro.
+        if (padrao[i_padrao] == 0) return 1; // Se chegou no '\0', leu o padrão inteiro.
 
-    } else { // Se não achar a primeira letra, certamente o padrão não existe
-        return 0;
-    }
+        i_nome++;
+    } while (i_nome < 15);
+
+    return 0;
 }
 
 int conta_substrings(Turma t[], int qtd_turmas, char *padrao) {
-    assert(padrao != 0);
-
     int contador = 0;
 
     for (int i = 0; i < qtd_turmas; i++) {
@@ -154,4 +189,20 @@ int conta_substrings(Turma t[], int qtd_turmas, char *padrao) {
     }
 
     return contador;
+}
+
+int add_aluno(Turma t[], Aluno a, int j) {
+    assert(t[j].qtd < 50);
+
+    t[j].alunos[t[j].qtd] = a;
+    t[j].qtd++;
+
+    return t[j].qtd;
+}
+
+int remove_aluno(Turma t[], int j) {
+    assert(t[j].qtd > 0);
+
+    t[j].qtd--;
+    return t[j].qtd;
 }
