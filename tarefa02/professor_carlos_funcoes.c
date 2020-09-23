@@ -22,6 +22,7 @@
  * @returns int < 0 se lhs < rhs, int > 0 se lhs > rhs e 0 se forem iguais.
  */
 int compara_data(Data lhs, Data rhs) __attribute_const__;
+
 int compara_data(Data lhs, Data rhs) {
     if (lhs.ano != rhs.ano) return lhs.ano - rhs.ano;
     else if (lhs.mes != rhs.mes) return lhs.mes - rhs.mes;
@@ -38,6 +39,7 @@ int compara_data(Data lhs, Data rhs) {
  * @returns -1 se lhs < rhs, 1 se lhs > rhs e 0 se forem iguais.
  */
 int compara_string(const char lhs[15], const char rhs[15]) __attribute_const__;
+
 int compara_string(const char lhs[15], const char rhs[15]) {
     for (int i = 0; i < 15; i++) {
         if (lhs[i] < rhs[i]) return -1;
@@ -134,10 +136,22 @@ Aluno procura_velho_todas_turmas(Turma t[], int qtd_turmas) {
     return procura_todas_turmas(t, qtd_turmas, MAIOR);
 }
 
+/**
+ * Busca uma letra em um nome, a partir de um índice.
+ * 
+ * @param nome Nome.
+ * @param inicio Índice inicial da busca.
+ * @param letra Letra a ser buscada.
+ * 
+ * @return o índice da letra no nome, ou -1 caso ela não exista.
+ */
+int busca_letra(char nome[15], int inicio, char letra) __attribute_const__;
+
 int busca_letra(char nome[15], int inicio, char letra) {
     for (int i = inicio; i < 15; i++) {
         if (nome[i] == letra) return i;
     }
+
     return -1;
 }
 
@@ -171,7 +185,7 @@ int tem_substring(char nome[15], const char* padrao) {
 
         if (padrao[i_padrao] == 0) return 1; // Se chegou no '\0', leu o padrão inteiro.
 
-        i_nome++;
+        i_nome += i_padrao;
     } while (i_nome < 15);
 
     return 0;
