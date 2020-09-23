@@ -148,7 +148,7 @@ Aluno procura_velho_todas_turmas(Turma t[], int qtd_turmas) {
 int busca_letra(char nome[15], int inicio, char letra) __attribute_const__;
 
 int busca_letra(char nome[15], int inicio, char letra) {
-    for (int i = inicio; i < 15; i++) {
+    for (int i = inicio; i < 15 && nome[i] != 0; i++) {
         if (nome[i] == letra) return i;
     }
 
@@ -179,6 +179,8 @@ int tem_substring(char nome[15], const char* padrao) {
         // a partir dali
         int i_padrao = 1;
         while (i_nome + i_padrao < 15 && padrao[i_padrao] != 0) {
+            assert(i_padrao < 5);
+            
             if (nome[i_nome + i_padrao] != padrao[i_padrao]) break;
             i_padrao++;
         }

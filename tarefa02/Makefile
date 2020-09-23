@@ -11,7 +11,7 @@ professor_carlos: professor_carlos_main.c professor_carlos_funcoes.c
 	gcc $(CFLAGS) -o professor_carlos professor_carlos_main.o professor_carlos_funcoes.o $(LDFLAGS)
 
 memcheck: professor_carlos
-	valgrind --leak-check=full ./professor_carlos < ./testes/tarefa02_15.in
+	valgrind --leak-check=full ./professor_carlos < ./testes/tarefa02_14.in
 
 profile: professor_carlos
 	valgrind --tool=callgrind --cache-sim=yes --branch-sim=yes ./professor_carlos < ./testes/tarefa02_15.in
