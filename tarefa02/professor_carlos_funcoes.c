@@ -38,12 +38,14 @@ int compara_data(Data lhs, Data rhs) {
  * 
  * @returns -1 se lhs < rhs, 1 se lhs > rhs e 0 se forem iguais.
  */
-int compara_string(const char lhs[15], const char rhs[15]) __attribute_const__;
+int compara_string(const char lhs[15], const char rhs[15]) __attribute_pure__;
 
 int compara_string(const char lhs[15], const char rhs[15]) {
     for (int i = 0; i < 15; i++) {
         if (lhs[i] < rhs[i]) return -1;
         else if (lhs[i] > rhs[i]) return 1;
+        else if (!lhs[i]) return 0; // Se os caracteres são iguais e ambos 0,
+                                    // chegou no fim das strings.
     }
 
     return 0;
@@ -59,7 +61,8 @@ int compara_string(const char lhs[15], const char rhs[15]) {
  * 
  * @returns -1 se lhs < rhs, 1 se lhs > rhs e 0 se forem iguais.
  */
-int compara_aluno(Aluno, Aluno, int) __attribute_const__;
+int compara_aluno(Aluno lhs, Aluno rhs, int minmax) __attribute_const__;
+
 int compara_aluno(Aluno lhs, Aluno rhs, int minmax) {
     int cmp = minmax * compara_data(lhs.nascimento, rhs.nascimento);
 
@@ -78,23 +81,23 @@ int compara_aluno(Aluno lhs, Aluno rhs, int minmax) {
  * @param j Índice da turma desejada.
  * @param minmax MENOR (-1, mais novo) ou MAIOR (1, mais velho).
  * 
- * @return Ponteiro para o aluno mais novo ou mais velho na turma (não-nulo). 
+ * @return Aluno mais novo ou mais velho na turma. 
  */
-Aluno procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax) {
+Aluno procura_na_turma(const Turma t[], int qtd_turmas, int j, int minmax) {
     assert(j < qtd_turmas);
 
     Turma turma = t[j];
-    Aluno novo = turma.alunos[0];
+    Aluno min = turma.alunos[0];
 
     for (int i = 1; i < turma.qtd; i++) {   
         Aluno a = turma.alunos[i];
 
-        if (compara_aluno(a, novo, minmax) < 0) {
-            novo = a;
+        if (compara_aluno(a, min, minmax) < 0) {
+            min = a;
         }
     }
 
-    return novo;
+    return min;
 }
 
 /**
@@ -104,20 +107,20 @@ Aluno procura_na_turma(Turma t[], int qtd_turmas, int j, int minmax) {
  * @param qtd_turmas Quantidade de turmas.
  * @param minmax MENOR (mais novo) ou MAIOR (mais velho).
  * 
- * @return Ponteiro para o aluno mais novo ou mais velho de todas as turmas (não-nulo). 
+ * @return Aluno mais novo ou mais velho de todas as turmas. 
  */
-Aluno procura_todas_turmas(Turma t[], int qtd_turmas, int minmax) {
-    Aluno novo = procura_na_turma(t, qtd_turmas, 0, minmax);
+Aluno procura_todas_turmas(const Turma t[], int qtd_turmas, int minmax) {
+    Aluno min = procura_na_turma(t, qtd_turmas, 0, minmax);
 
     for (int i = 1; i < qtd_turmas; i++) {
         Aluno novo_na_turma = procura_na_turma(t, qtd_turmas, i, minmax);
 
-        if (compara_aluno(novo_na_turma, novo, minmax) < 0) {
-            novo = novo_na_turma;
+        if (compara_aluno(novo_na_turma, min, minmax) < 0) {
+            min = novo_na_turma;
         }
     }
 
-    return novo;
+    return min;
 }
 
 Aluno procura_novo_na_turma(Turma t[], int qtd_turmas, int j) {
@@ -145,10 +148,15 @@ Aluno procura_velho_todas_turmas(Turma t[], int qtd_turmas) {
  * 
  * @return o índice da letra no nome, ou -1 caso ela não exista.
  */
-int busca_letra(char nome[15], int inicio, char letra) __attribute_const__;
+int busca_letra(const char nome[15], int inicio, char letra)
+    __attribute_pure__
+#if __GNUC__ >= 10
+    __attribute__((read_only(1)))
+#endif
+    __attribute__((hot, optimize(3)));
 
-int busca_letra(char nome[15], int inicio, char letra) {
-    for (int i = inicio; i < 15 && nome[i] != 0; i++) {
+int busca_letra(const char* restrict nome, int inicio, char letra) {
+    for (int i = inicio; nome[i] != 0; i++) {
         if (nome[i] == letra) return i;
     }
 
@@ -164,11 +172,14 @@ int busca_letra(char nome[15], int inicio, char letra) {
  * 
  * @return 1 (tem a substring) ou 0 (não tem).
  */
-int tem_substring(char nome[15], const char* padrao)
+int tem_substring(const char nome[15], const char* padrao)
     __attribute_pure__
+#if __GNUC__ >= 10
+    __attribute__((read_only(1)))
+#endif
     __attribute__((nonnull(2)));
 
-int tem_substring(char nome[15], const char* padrao) {
+int tem_substring(const char* restrict nome, const char* restrict padrao) {
     int i_nome = 0;
 
     do {
@@ -178,17 +189,23 @@ int tem_substring(char nome[15], const char* padrao) {
         // Se achar a primeira letra, continua comparando o padrão com o nome
         // a partir dali
         int i_padrao = 1;
-        while (i_nome + i_padrao < 15 && padrao[i_padrao] != 0) {
+        while (nome[i_nome + i_padrao] & padrao[i_padrao]) {
             assert(i_padrao < 5);
             
+            // Se tiver diferença, para de olhar
             if (nome[i_nome + i_padrao] != padrao[i_padrao]) break;
+
             i_padrao++;
         }
 
-        if (padrao[i_padrao] == 0) return 1; // Se chegou no '\0', leu o padrão inteiro.
+        // Se chegou no '\0', leu o padrão inteiro.
+        if (padrao[i_padrao] == 0) return 1;
 
+        // Se deu qualquer diferença, dá pra pular até onde foi comparado.
+        // Como queremos apenas detectar a existência e não contar as
+        // ocorrências, não tem problema com padrões sobrepostos.
         i_nome += i_padrao;
-    } while (i_nome < 15);
+    } while (nome[i_nome]);
 
     return 0;
 }
