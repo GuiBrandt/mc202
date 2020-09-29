@@ -34,7 +34,7 @@ typedef struct _categoria {
  */
 void init_categoria(Categoria_t* categoria, int max_itens)
     __attribute__((
-        nonnull(1)
+        nonnull(1),
 #if __GNUC__ >= 10
         write_only(1)
 #endif
@@ -58,7 +58,7 @@ void free_categoria(Categoria_t* categoria)
  */
 void add_na_categoria(Categoria_t* categoria, const char* termo)
     __attribute__((
-        nonnull(1)
+        nonnull(1),
 #if __GNUC__ >= 10
         write_only(1),
         read_only(2)
@@ -92,7 +92,7 @@ void print_categoria(const char* titulo, const Categoria_t* categoria)
  */
 void processar_termo(Categoria_t categorias[], int n_hist)
     __attribute__((
-        nonnull(1)
+        nonnull(1),
 #if __GNUC__ >= 10
         write_only(1)
 #endif
@@ -155,7 +155,7 @@ void init_categoria(Categoria_t* categoria, int max_items) {
 
     // Os itens são sequenciais na memória, assim fica mais fácil de liberar
     // depois.
-    categoria->itens = malloc(max_items * (TERMO_LEN_MAX + 1) * sizeof(char));
+    categoria->itens = (char*) malloc(max_items * (TERMO_LEN_MAX + 1) * sizeof(char));
 }
 
 void free_categoria(Categoria_t* categoria) {
@@ -235,7 +235,7 @@ void calc_estatisticas(
 }
 
 void processar_termo(Categoria_t categorias[], int n_hist) {
-    char* termo = alloca(26 * sizeof(char));
+    char* termo = (char*) alloca(26 * sizeof(char));
     scanf("%s", termo);
 
     double min, max, media, dp;
