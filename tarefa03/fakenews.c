@@ -6,6 +6,7 @@
  */
 
 #include <stdlib.h>
+#include <alloca.h>
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -234,7 +235,7 @@ void calc_estatisticas(
 }
 
 void processar_termo(Categoria_t categorias[], int n_hist) {
-    char* termo = malloc(26 * sizeof(char));
+    char* termo = alloca(26 * sizeof(char));
     scanf("%s", termo);
 
     double min, max, media, dp;
@@ -244,6 +245,4 @@ void processar_termo(Categoria_t categorias[], int n_hist) {
     
     Categorias cat = classificar(max, min, media, dp);
     add_na_categoria(&categorias[cat], termo);
-
-    free(termo);
 }

@@ -1,0 +1,30 @@
+{
+	"folders": [
+		{
+			"name": "Fake News",
+			"path": "tarefa03"
+		},
+		{
+			"name": "Professor Carlos",
+			"path": "tarefa02"
+		},
+		{
+			"name": "Mega-sena",
+			"path": "tarefa01"
+		},
+		{
+			"name": "Introdução",
+			"path": "tarefa00"
+		}
+	],
+	"settings": {
+		"C_Cpp.default.compilerArgs": [
+			"-std=c99",
+			"-Wall",
+			"-Werror",
+			"-Werror=vla",
+			"-g"
+		],
+		"C_Cpp.default.cStandard": "c99",
+	}
+}
