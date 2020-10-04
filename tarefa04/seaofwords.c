@@ -42,7 +42,7 @@ int main() {
     int n, m, q;
     scanf("%d %d %d", &n, &m, &q);
 
-    char texto[MAX_LINHAS][MAX_COLUNAS]; // Torcer pra pilha aguentar
+    char texto[MAX_LINHAS][MAX_COLUNAS];
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < m; j++) {
             scanf(" %c", &texto[i][j]);
@@ -119,7 +119,7 @@ bool contem_palavra(
     const char texto[][MAX_COLUNAS],
     const char* palavra
 ) {
-    bool usado[MAX_LINHAS][MAX_COLUNAS] = { false }; // Torcer pra pilha aguentar (2)
+    bool usado[MAX_LINHAS][MAX_COLUNAS] = { false };
 
     // Faz a busca recursiva com backtracking para cada posição na matriz
     for (int l = 0; l < n; l++) {
