@@ -1,6 +1,10 @@
 {
 	"folders": [
 		{
+			"name": "Sea of Words",
+			"path": "tarefa04"
+		}
+		{
 			"name": "Fake News",
 			"path": "tarefa03"
 		},
