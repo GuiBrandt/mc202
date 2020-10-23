@@ -105,7 +105,7 @@ inline static result_code extend_if_needed(node_ptr node) {
  * produto de quaisquer dois itens caiba em 64-bits para o processo de
  * multiplicação.
  */
-#define ITEM_MAX 100000000U
+#define ITEM_MAX 1000000000U
 
 #ifdef NDEBUG
 #define assert_valid ((void)0)
@@ -281,18 +281,25 @@ void reverse(bignum* ptr) {
 // Caso simplificado da divisão, onde lhs / rhs é garantido ter exatamente um
 // dígito na base usada.
 // Faz busca binária nos valores possíveis para determinar o quociente.
-bignum_item divide_base(bignum* lhs, const bignum* rhs) {
+result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
     bignum_item left = 0, right = ITEM_MAX - 1;
+
+    result_code result;
 
     bignum product;
     while (left < right) {
         bignum_item mid = (left + right) / 2;
-        bignum_init(&product);
+        if ((result = bignum_init(&product)) != SUCCESS)
+            return result;
 
         node_ptr current = product.internal;
         for (node_ptr it = rhs->internal; it != NULL; it = it->next) {
             bignum_item p = it->data * mid;
-            add_with_carry(current, p);
+
+            if ((result = add_with_carry(current, p)) != SUCCESS) {
+                bignum_destroy(&product);
+                return result;
+            }
 
             if (it->next != NULL)
                 extend_if_needed(current);
@@ -307,13 +314,18 @@ bignum_item divide_base(bignum* lhs, const bignum* rhs) {
             left = mid + 1;
         } else {
             left = right = mid + 1;
-            bignum_subtract(lhs, &product);
+            if ((result = bignum_subtract(lhs, &product)) != SUCCESS) {
+                bignum_destroy(&product);
+                return result;
+            }
         }
 
         bignum_destroy(&product);
     }
 
-    return left - 1;
+    *out = left - 1;
+
+    return SUCCESS;
 }
 
 //============================================================================
@@ -626,7 +638,9 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
         }
 
         if (bignum_cmp(remainder, rhs) >= 0) {
-            bignum_item q = divide_base(remainder, rhs);
+            bignum_item q;
+            if ((result = divide_base(remainder, rhs, &q)) != SUCCESS)
+                goto finish;
 
             if (quotient.internal->data != 0 || quotient.internal->next != NULL) {
                 node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
@@ -649,9 +663,11 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     quotient.internal = swap;
     
 finish:
-    if (quotient.internal) bignum_destroy(&quotient);
-    if (!returns_remainder) {
-        if (remainder->internal) bignum_destroy(remainder);
-    }
+    if (quotient.internal)
+        bignum_destroy(&quotient);
+    
+    if (!returns_remainder && remainder->internal)
+        bignum_destroy(remainder);
+    
     return result;
 }
