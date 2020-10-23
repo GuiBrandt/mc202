@@ -73,6 +73,13 @@ inline static node_ptr new_node() {
     return node;
 }
 
+/**
+ * @brief Adiciona um próximo para um nó caso ele não tenha.
+ * 
+ * @param node Nó a ser estendido.
+ * 
+ * @return SUCCESS ou FAIL_OOM.
+ */
 inline static result_code extend_if_needed(node_ptr node) {
     if (node->next == NULL) {
         node->next = new_node();
