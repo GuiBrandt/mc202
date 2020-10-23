@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <alloca.h>
 
 #include <assert.h>
 
@@ -104,7 +105,7 @@ inline static result_code extend_if_needed(node_ptr node) {
  * produto de quaisquer dois itens caiba em 64-bits para o processo de
  * multiplicação.
  */
-#define ITEM_MAX 1000000000U
+#define ITEM_MAX 10U
 
 #ifdef NDEBUG
 #define assert_valid ((void)0)
@@ -164,8 +165,9 @@ result_code add_at_node(node_ptr current_lhs, const bignum* rhs) {
 }
 
 // Implementação de subtração assumindo que lhs >= rhs.
-result_code subtract_base(bignum* lhs, const bignum* rhs) {
+void subtract_base(bignum* lhs, const bignum* rhs) {
     node_ptr current_lhs = lhs->internal,
+             prev_lhs = NULL,
              current_rhs = rhs->internal;
 
     while (current_rhs) {
@@ -201,13 +203,19 @@ result_code subtract_base(bignum* lhs, const bignum* rhs) {
         // Se não, podemos simplesmente subtrair e tudo fica bem
         } else {
             current_lhs->data -= current_rhs->data;
+
+            // Se formos deixar algum zero à esquerda, liberamos o nó
+            // correspondente.
+            if (prev_lhs && current_lhs->data == 0 && current_lhs->next == NULL) {
+                prev_lhs->next = NULL;
+                free(current_lhs);
+            }
         }
 
+        prev_lhs = current_lhs;
         current_lhs = current_lhs->next;
         current_rhs = current_rhs->next;
     }
-
-    return SUCCESS;
 }
 
 // Multiplica um bignum por um único nó, e soma o resultado a um auxiliar
@@ -253,6 +261,44 @@ result_code multiply_partial(
     bignum_destroy(&summand);
 
     return SUCCESS;
+}
+
+result_code shift_left(bignum* ptr) {
+    ptr->internal->data <<= 1;
+    if (ptr->internal->data > ITEM_MAX) {
+        result_code result = add_with_carry(ptr->internal->next, 1);
+        if (result != SUCCESS)
+            return result;
+
+        ptr->internal->data -= ITEM_MAX;
+    }
+
+    return SUCCESS;
+}
+
+void reverse(bignum* ptr) {
+    node_ptr prev = ptr->internal, current = prev->next;
+
+    while (current != NULL) {
+        node_ptr next = current->next;
+        current->next = prev;
+        prev = current;
+        current = next;
+    }
+
+    ptr->internal->next = NULL;
+    ptr->internal = prev;
+}
+
+bignum_item divide_base(bignum* lhs, const bignum* rhs) {
+    bignum_item count = 0;
+
+    while (bignum_cmp(lhs, rhs) >= 0) {
+        subtract_base(lhs, rhs);
+        count++;
+    }
+
+    return count;
 }
 
 //============================================================================
@@ -452,14 +498,15 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
             lhs->internal = aux.internal;
             aux.internal = swap;
 
-            result = subtract_base(lhs, &aux);
+            subtract_base(lhs, &aux);
         }
 
         bignum_destroy(&aux);
         return result;
 
     } else {
-        return subtract_base(lhs, rhs);
+        subtract_base(lhs, rhs);
+        return SUCCESS;
     }
 }
 
@@ -520,7 +567,71 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     return SUCCESS;
 }
 
-result_code bignum_divide(bignum* lhs, const bignum* rhs) {
-    // TODO
-    return SUCCESS;
+result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
+    if (rhs->internal->data == 0 && rhs->internal->next == NULL) {
+        return FAIL_DIVIDE_BY_ZERO;
+    }
+
+    if (bignum_cmp(rhs, lhs) > 0) {
+        // Se rhs > lhs, basta zerar o lado esquerdo.
+        bignum_destroy(lhs);
+        bignum_init(lhs);
+        return SUCCESS;
+    }
+
+    result_code result = SUCCESS;
+
+    bignum quotient = {0};
+    if ((result = bignum_init(&quotient)) != SUCCESS)
+        goto finish;
+
+    if (remainder == NULL) {
+        remainder = (bignum*) alloca(sizeof(bignum));
+        if ((result = bignum_init(remainder)) != SUCCESS)
+            goto finish;
+    }
+
+    reverse(lhs);
+    for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
+
+        if (remainder->internal->next != NULL) {
+            node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
+            if (lsb == NULL) {
+                result = FAIL_OOM;
+                goto finish;
+            }
+
+            lsb->data = it->data;
+            lsb->next = remainder->internal;
+            remainder->internal = lsb;
+        } else {
+            remainder->internal->data = it->data;
+        }
+
+        if (bignum_cmp(remainder, rhs) >= 0) {
+            bignum_item q = divide_base(remainder, rhs);
+
+            if (quotient.internal->next != NULL) {
+                node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
+                if (lsb == NULL) {
+                    result = FAIL_OOM;
+                    goto finish;
+                }
+
+                lsb->data = q;
+                lsb->next = quotient.internal;
+                quotient.internal = lsb;
+            } else {
+                quotient.internal->data = q;
+            }
+        }
+    }
+
+    node_ptr swap = lhs->internal;
+    lhs->internal = quotient.internal;
+    quotient.internal = swap;
+    
+finish:
+    if (quotient.internal) bignum_destroy(&quotient);
+    return result;
 }

@@ -149,9 +149,14 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs);
  * 
  * @param lhs lado esquerdo da multiplicação (recebe o resultado).
  * @param rhs lado direito da multiplicação.
+ * @param remainder recebe o resto da divisão (opcional).
+ * 
+ * @note Se remainder não for NULL, a função assume que o ponteiro de resto
+ *       acabou de ser inicializado, isto é, o ponteiro é válido mas não
+ *       contém nenhum valor.
  * 
  * @return SUCCESS, FAIL_OOM ou FAIL_DIVIDE_BY_ZERO caso rhs == 0.
  */
-result_code bignum_divide(bignum* lhs, const bignum* rhs);
+result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder);
 
 #endif // __BIGNUM_H__

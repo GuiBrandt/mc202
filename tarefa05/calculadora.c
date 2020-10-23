@@ -43,7 +43,7 @@ int main() {
                 break;
             
             case '/':
-                bignum_divide(&lhs, &rhs);
+                bignum_divide(&lhs, &rhs, NULL);
                 break;
             
             default:
