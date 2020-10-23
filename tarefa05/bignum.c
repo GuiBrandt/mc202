@@ -114,7 +114,7 @@ result_code bignum_parse(bignum* dest, const char* str) {
     for (int i = strlen(str) - 1; i >= 0; i--, pow *= 10) {
         // Se adicionar um dígito estouraria nosso limite, criamos um
         // novo nó para armazenar o resto.
-        if (current->data >= ITEM_MAX / 10) {
+        if (pow >= ITEM_MAX) {
             current = current->next = new_node();
             if (current == NULL)
                 return FAIL_OOM;
@@ -134,6 +134,7 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
              current_rhs = rhs->internal;
 
     while (current_rhs) {
+
         // Essa soma sempre é segura, pois garantimos que os dados são menores
         // que 10^9, e portanto sua soma sempre cabe no tipo inteiro usado.
         current_lhs->data += current_rhs->data;
@@ -166,6 +167,36 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
     return SUCCESS;
 }
 
+result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
+    node_ptr current_lhs = lhs->internal,
+             current_rhs = rhs->internal;
+
+    while (current_rhs) {
+        if (current_rhs->data > current_lhs->data) {
+            // "Empresta" ITEM_MAX da próxima casa decimal, então subtrai.
+            current_lhs->data += ITEM_MAX;
+            current_lhs->data -= current_rhs->data;
+
+            // Procuramos um valor não nulo acima e replicamos o passo de
+            // "emprestar" para cada nó no caminho.
+            node_ptr current_carry = current_lhs->next;
+            while (current_carry->data == 0) {
+                current_carry->data = ITEM_MAX - 1;
+                current_carry = current_carry->next;
+            }
+
+            current_carry->data--;
+        } else {
+            current_lhs->data -= current_rhs->data;
+        }
+
+        current_lhs = current_lhs->next;
+        current_rhs = current_rhs->next;
+    }
+
+    return SUCCESS;
+}
+
 void bignum_destroy(bignum* dest) {
     node_ptr current = dest->internal, next;
 
@@ -183,8 +214,8 @@ int main() {
     bignum_init(&big1);
     bignum_init(&big2);
 
-    bignum_parse(&big1, "9999999999999");
-    bignum_parse(&big2, "9999999999999");
+    bignum_parse(&big1, "1000000000000000000");
+    bignum_parse(&big2, "1");
 
     node_ptr current = big1.internal;
     while (current) {
@@ -193,7 +224,7 @@ int main() {
     }
     printf("<END>\n");
 
-    bignum_add(&big1, &big2);
+    bignum_subtract(&big1, &big2);
 
     current = big1.internal;
     while (current) {

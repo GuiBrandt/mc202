@@ -40,8 +40,6 @@ typedef enum {
  * Essa função deve ser chamada antes de qualquer uso de um número grande.
  * Caso contrário, o comportamento do ADT é indeterminado.
  * 
- * Complexidade: O(1)
- * 
  * @param dest Ponteiro para um número grande.
  * 
  * @note A função recebe um ponteiro para um bignum ao invés de retornar
@@ -54,8 +52,6 @@ result_code bignum_init(bignum* dest);
 
 /**
  * @brief Converte uma string em um número bem grande.
- * 
- * Complexidade: O(|str|)
  * 
  * @param dest Ponteiro para um número grande pré-inicializado.
  * @param str String a ser convertida.
@@ -71,8 +67,6 @@ result_code bignum_parse(bignum* dest, const char* str);
 /**
  * @brief Converte um número bem grande em uma string.
  * 
- * Complexidade: O(log N), N = o número bem grande.
- * 
  * @param str String de destino.
  * @param len Tamanho máximo da string (contando '\0').
  * @param source Número bem grande.
@@ -85,8 +79,6 @@ result_code bignum_sprintf(char* str, size_t len, const bignum* source);
 /**
  * @brief Libera os recursos criados para um número grande.
  * 
- * Complexidade: O(n)
- * 
  * @param dest Ponteiro para um número grande.
  * 
  * @note Após chamar a função, o objeto fica **inválido** até a próxima
@@ -98,8 +90,6 @@ void bignum_destroy(bignum* dest);
 /**
  * @brief Soma dois números grandes, modifica o primeiro.
  * 
- * Complexidade: O(log N) tempo, onde N = maior número entre os argumentos.
- * 
  * @param lhs lado esquerdo da soma (recebe o resultado).
  * @param rhs lado direito da soma.
  * 
@@ -110,8 +100,6 @@ result_code bignum_add(bignum* lhs, const bignum* rhs);
 /**
  * @brief Subtrai um número grande de outro, modifica o minuendo.
  * 
- * Complexidade: O(log N) tempo, onde N = maior número entre os argumentos.
- * 
  * @param lhs minuendo (recebe o resultado).
  * @param rhs subtraendo.
  * 
@@ -119,11 +107,8 @@ result_code bignum_add(bignum* lhs, const bignum* rhs);
  */
 result_code bignum_subtract(bignum* lhs, const bignum* rhs);
 
-
 /**
  * @brief Multiplica dois números grandes, alterando o primeiro.
- * 
- * Complexidade: O(log N) tempo, onde N = maior número entre os argumentos.
  * 
  * @param lhs lado esquerdo da multiplicação (recebe o resultado).
  * @param rhs lado direito da multiplicação.
@@ -133,9 +118,7 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs);
 result_code bignum_multiply(bignum* lhs, const bignum* rhs);
 
 /**
- * @brief Multiplica dois números grandes, alterando o primeiro.
- * 
- * Complexidade: O(log N) tempo, onde N = maior número entre os argumentos.
+ * @brief Divide dois números grandes, alterando o primeiro.
  * 
  * @param lhs lado esquerdo da multiplicação (recebe o resultado).
  * @param rhs lado direito da multiplicação.
