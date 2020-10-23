@@ -105,7 +105,7 @@ inline static result_code extend_if_needed(node_ptr node) {
  * produto de quaisquer dois itens caiba em 64-bits para o processo de
  * multiplicação.
  */
-#define ITEM_MAX 10U
+#define ITEM_MAX 100U
 
 #ifdef NDEBUG
 #define assert_valid ((void)0)
@@ -592,9 +592,9 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     }
 
     reverse(lhs);
-    for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
 
-        if (remainder->internal->next != NULL) {
+    for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
+        if (remainder->internal->data != 0 || remainder->internal->next != NULL) {
             node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
             if (lsb == NULL) {
                 result = FAIL_OOM;
@@ -611,7 +611,7 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
         if (bignum_cmp(remainder, rhs) >= 0) {
             bignum_item q = divide_base(remainder, rhs);
 
-            if (quotient.internal->next != NULL) {
+            if (quotient.internal->data != 0 || quotient.internal->next != NULL) {
                 node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
                 if (lsb == NULL) {
                     result = FAIL_OOM;
