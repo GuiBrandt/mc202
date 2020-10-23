@@ -1,12 +1,13 @@
-CFLAGS = -std=c99 -Wall -Werror -Werror=vla -g
-LDFLAGS = -lm
+CC=gcc
+CFLAGS=-std=c99 -Wall -Werror -Werror=vla -g
+LDFLAGS=-lm
 
 .PHONY: all clean
 
 all: calculadora
 
-calculadora: calculadora.c
-	gcc $(CFLAGS) calculadora.c -o calculadora $(LDFLAGS)
+calculadora: calculadora.o bignum.o
+	$(CC) $(CFLAGS) calculadora.o bignum.o -o calculadora $(LDFLAGS)
 
 clean:
 	rm -f calculadora

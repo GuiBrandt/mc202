@@ -8,20 +8,20 @@
 #ifndef __LISTA_H__
 #define __LISTA_H__
 
-#include <stdlib.h>
+#include <stddef.h> // size_t
 
 /**
  * @brief Estrutura opaca para a representação interna de um número grande.
  * 
  * Internamente é implementado como uma lista ligada.
  */
-typedef struct _bignum_data bignum_data;
+struct _bignum_data;
 
 /**
- * @brief Estrutura para um número grande.
+ * @brief Estrutura para um número bem grande.
  */
 typedef struct {
-    bignum_data* internal; /** Sentinela */
+    struct _bignum_data* internal; /** Sentinela */
 } bignum;
 
 /**
@@ -35,7 +35,7 @@ typedef enum {
 } result_code;
 
 /**
- * @brief Inicializa um número grande.
+ * @brief Inicializa um número grande com valor 0.
  * 
  * Essa função deve ser chamada antes de qualquer uso de um número grande.
  * Caso contrário, o comportamento do ADT é indeterminado.
@@ -90,9 +90,8 @@ result_code bignum_sprintf(char* str, size_t len, const bignum* source);
  * @param dest Ponteiro para um número grande.
  * 
  * @note Após chamar a função, o objeto fica **inválido** até a próxima
- *       chamada a `bignum_init`.
- * 
- * @return SUCCESS ou FAIL_OOM.
+ *       chamada a `bignum_init`. Observe que esta função **não libera**
+ *       o ponteiro passado.
  */
 void bignum_destroy(bignum* dest);
 
