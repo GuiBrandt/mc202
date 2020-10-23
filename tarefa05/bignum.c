@@ -73,6 +73,18 @@ inline static node_ptr new_node() {
     return node;
 }
 
+inline static result_code extend_if_needed(node_ptr node) {
+    if (node->next == NULL) {
+        node->next = new_node();
+
+        if (node->next == NULL) {
+            return FAIL_OOM;
+        }
+    }
+
+    return SUCCESS;
+}
+
 //============================================================================
 // Utilitários
 //============================================================================
@@ -109,11 +121,9 @@ result_code add_with_carry(node_ptr current_lhs, bignum_item n) {
         current_carry->data %= ITEM_MAX;
 
         // Criamos um novo nó caso não tenhamos o suficiente
-        if (current_carry->next == NULL) {
-            current_carry->next = new_node();
-            if (current_carry->next == NULL)
-                return FAIL_OOM;
-        }
+        result_code result;
+        if ((result = extend_if_needed(current_carry)) != SUCCESS)
+            return result;
 
         current_carry->next->data += carry;
         current_carry = current_carry->next;
@@ -123,9 +133,11 @@ result_code add_with_carry(node_ptr current_lhs, bignum_item n) {
 }
 
 result_code add_at_node(node_ptr current_lhs, const bignum* rhs) {
-    node_ptr current_rhs = rhs->internal;
-
-    while (current_rhs) {
+    for (
+        node_ptr current_rhs = rhs->internal;
+        current_rhs != NULL;
+        current_lhs = current_lhs->next, current_rhs = current_rhs->next
+    ) {
         bignum_item n = current_rhs->data;
         result_code result;
 
@@ -134,19 +146,11 @@ result_code add_at_node(node_ptr current_lhs, const bignum* rhs) {
         if ((result = add_with_carry(current_lhs, n)) != SUCCESS)
             return result;
 
-        current_rhs = current_rhs->next;
-        if (current_rhs == NULL)
-            break;
-
-        if (current_lhs->next == NULL) {
-            current_lhs->next = new_node();
-
-            if (current_lhs->next == NULL) {
-                return FAIL_OOM;
-            }
+        if (current_rhs->next != NULL) {
+            result_code result;
+            if ((result = extend_if_needed(current_lhs)) != SUCCESS)
+                return result;
         }
-
-        current_lhs = current_lhs->next;
     }
 
     return SUCCESS;
@@ -201,11 +205,14 @@ result_code subtract_base(bignum* lhs, const bignum* rhs) {
 
 // Multiplica um bignum por um único nó, e soma o resultado a um auxiliar
 result_code multiply_partial(
-    node_ptr fixed,
     node_ptr current_aux,
+    node_ptr fixed,
     const bignum* lhs
 ) {
-    result_code result;
+    if (fixed->data == 0)
+        return SUCCESS;
+
+    result_code result = SUCCESS;
 
     // Criamos mais um bignum auxiliar, dessa vez para armazenar os
     // produtos parciais referentes à multiplicação de cada dígito em rhs
@@ -216,18 +223,29 @@ result_code multiply_partial(
 
     for (
         node_ptr current_lhs = lhs->internal,
-                    current_summand = summand.internal;
+                 current_summand = summand.internal;
         current_lhs != NULL;
         current_lhs = current_lhs->next,
         current_summand = current_summand->next
     ) {
         bignum_item product = current_lhs->data * fixed->data;
-        add_with_carry(current_summand, product);
+        if ((result = add_with_carry(current_summand, product)) != SUCCESS)
+            return result;
+
+        if (current_lhs->next != NULL) {
+            result_code result;
+            if ((result = extend_if_needed(current_summand)) != SUCCESS) {
+                bignum_destroy(&summand);
+                return result;
+            }
+        }
     }
 
     // Então somamos o produto parcial ao total e nos livramos dele
-    add_at_node(current_aux, &summand);
+    result = add_at_node(current_aux, &summand);
     bignum_destroy(&summand);
+
+    return SUCCESS;
 }
 
 //============================================================================
@@ -351,6 +369,11 @@ result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
         dest[i - j - 1] = swap;
     }
 
+    if (i == 0) {
+        dest[i] = '0';
+        i++;
+    }
+
     dest[i] = '\0';
 
     return SUCCESS;
@@ -445,6 +468,15 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     if ((result = bignum_init(&aux)) != SUCCESS)
         return result;
 
+    // Caso especial: se lhs = 0, o retorno é 0.
+    // Este caso é tratado separadamente porque é o único caso em que seria
+    // possível introduzir zeros à esquerda no número, por conta do próximo
+    // passo.
+    if (lhs->internal->next == NULL && bignum_cmp(lhs, &aux) == 0) {
+        bignum_destroy(&aux);
+        return SUCCESS;
+    }
+
     // Percorremos para elemento do lado direito para multiplicar pelos
     // elementos do lado esquerdo.
     // Também avançamos na lista do auxiliar ao mesmo tempo, equivalente à
@@ -456,10 +488,20 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
         current_rhs != NULL;
         current_rhs = current_rhs->next, current_aux = current_aux->next
     ) {
-        result = multiply_partial(current_rhs, current_aux, lhs);
+        result = multiply_partial(current_aux, current_rhs, lhs);
 
-        if (result != SUCCESS)
+        if (result != SUCCESS) {
+            bignum_destroy(&aux);
             return result;
+        }
+
+        if (current_rhs->next != NULL) {
+            result_code result;
+            if ((result = extend_if_needed(current_aux)) != SUCCESS) {
+                bignum_destroy(&aux);
+                return result;
+            }
+        }
     }
 
     // Ao final, trocamos o auxiliar com o resultado e o lhs
@@ -471,46 +513,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     return SUCCESS;
 }
 
-#include <stdio.h>
-
-int main() {
-    bignum big1, big2;
-    bignum_init(&big1);
-    bignum_init(&big2);
-
-    bignum_parse(&big1, "385641209744002900063486");
-    bignum_parse(&big2, "15136511244937992393588");
-
-    node_ptr current = big1.internal;
-    while (current) {
-        printf("%llu -> ", current->data);
-        current = current->next;
-    }
-    printf("<END>\n");
-    
-    current = big2.internal;
-    while (current) {
-        printf("%llu -> ", current->data);
-        current = current->next;
-    }
-    printf("<END>\n");
-
-    bignum_multiply(&big2, &big1);
-
-    current = big2.internal;
-    while (current) {
-        printf("%llu -> ", current->data);
-        current = current->next;
-    }
-    printf("<END>\n");
-
-    char str[256];
-    bignum_sprintf(str, 64, &big1);
-    printf("%s ", str);
-
-    bignum_sprintf(str, 256, &big2);
-    printf("%s\n", str);
-
-    bignum_destroy(&big1);
-    bignum_destroy(&big2);
+result_code bignum_divide(bignum* lhs, const bignum* rhs) {
+    // TODO
+    return SUCCESS;
 }
