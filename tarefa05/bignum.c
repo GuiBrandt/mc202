@@ -401,8 +401,8 @@ result_code copy_product(
 result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
     bignum product;
     
-    bignum_item left = 0, right = ITEM_MAX, best = 0;
-    while (left < right) {
+    bignum_item left = 0, right = ITEM_MAX - 1, best = 0;
+    while (left <= right) {
         bignum_item mid = left + (right - left) / 2;
 
         EXPECT(bignum_init(&product));
@@ -412,17 +412,18 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
 
         int cmp = bignum_cmp(&product, lhs);
         if (cmp > 0) {
-            right = mid; // Direita já é não-inclusiva, não precisa subtrair.
-        
+            right = mid - 1;
+
         } else if (cmp < 0) {
             left = mid + 1;
             best = mid;
 
         } else {
-            best = left = right = mid;
+            best = mid;
+            left = right + 1;
         }
 
-        if (left == right) {
+        if (left > right) {
             TRY(bignum_subtract(lhs, &product),
                 ON_FAIL(bignum_destroy(&product)));
         }
