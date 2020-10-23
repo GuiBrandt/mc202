@@ -105,7 +105,7 @@ inline static result_code extend_if_needed(node_ptr node) {
  * produto de quaisquer dois itens caiba em 64-bits para o processo de
  * multiplicação.
  */
-#define ITEM_MAX 1000000000U
+#define ITEM_MAX 1000000U
 
 #ifdef NDEBUG
 #define assert_valid ((void)0)
