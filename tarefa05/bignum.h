@@ -5,8 +5,8 @@
  * @brief Declaração do tipo abstrato de dados para um número grande.
  */
 
-#ifndef __LISTA_H__
-#define __LISTA_H__
+#ifndef __BIGNUM_H__
+#define __BIGNUM_H__
 
 #include <stddef.h> // size_t
 
@@ -154,4 +154,4 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs);
  */
 result_code bignum_divide(bignum* lhs, const bignum* rhs);
 
-#endif // __LISTA_H__
+#endif // __BIGNUM_H__
