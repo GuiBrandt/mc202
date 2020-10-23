@@ -74,6 +74,10 @@ inline static node_ptr new_node() {
     return node;
 }
 
+//============================================================================
+// Utilitários
+//============================================================================
+
 /**
  * @brief Adiciona um próximo para um nó caso ele não tenha.
  * 
@@ -93,10 +97,6 @@ inline static result_code extend_if_needed(node_ptr node) {
     return SUCCESS;
 }
 
-//============================================================================
-// Utilitários
-//============================================================================
-
 /**
  * @brief Valor máximo para um único item na lista, i.e., a base numérica
  *        adotada para representação dos números. 
@@ -105,7 +105,7 @@ inline static result_code extend_if_needed(node_ptr node) {
  * produto de quaisquer dois itens caiba em 64-bits para o processo de
  * multiplicação.
  */
-#define ITEM_MAX 100U
+#define ITEM_MAX 100000000U
 
 #ifdef NDEBUG
 #define assert_valid ((void)0)
@@ -264,19 +264,6 @@ result_code multiply_partial(
     return SUCCESS;
 }
 
-result_code shift_left(bignum* ptr) {
-    ptr->internal->data <<= 1;
-    if (ptr->internal->data > ITEM_MAX) {
-        result_code result = add_with_carry(ptr->internal->next, 1);
-        if (result != SUCCESS)
-            return result;
-
-        ptr->internal->data -= ITEM_MAX;
-    }
-
-    return SUCCESS;
-}
-
 void reverse(bignum* ptr) {
     node_ptr prev = ptr->internal, current = prev->next;
 
@@ -291,12 +278,22 @@ void reverse(bignum* ptr) {
     ptr->internal = prev;
 }
 
+// Caso simplificado da divisão, onde lhs / rhs é garantido ter exatamente um
+// dígito na base usada.
 bignum_item divide_base(bignum* lhs, const bignum* rhs) {
     bignum_item count = 0;
 
-    while (bignum_cmp(lhs, rhs) >= 0) {
-        subtract_base(lhs, rhs);
-        count++;
+    if (rhs->internal->next == NULL) {
+        count += lhs->internal->data / rhs->internal->data;
+        
+        if (lhs->internal->next != NULL) {
+            count += ITEM_MAX * lhs->internal->next->data / rhs->internal->data;
+        }
+    } else {
+        while (bignum_cmp(lhs, rhs) >= 0) {
+            subtract_base(lhs, rhs);
+            count++;
+        }
     }
 
     return count;
@@ -396,7 +393,7 @@ result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
     int pow = 1;
     for (i = 0; current != NULL && i < len - 1; i++) {
         // Valor do nó atual deslocado pela potência de 10 atual.
-        int q = current->data / pow;
+        bignum_item q = current->data / pow;
         if (q == 0 && current->next == NULL)
             break;
 
