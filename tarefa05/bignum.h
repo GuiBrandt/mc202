@@ -102,6 +102,16 @@ result_code bignum_parse(bignum* dest, const char* str);
 result_code bignum_sprintf(char* str, size_t len, const bignum* source);
 
 /**
+ * @brief Compara dois números grandes.
+ * 
+ * @param lhs Lado esquerdo da comparação.
+ * @param rhs Lado direito da comparação.
+ * 
+ * @return -1 se lhs < rhs, 0 se forem iguais e 1 caso contrário.
+ */
+int bignum_cmp(const bignum* lhs, const bignum* rhs);
+
+/**
  * @brief Soma dois números grandes, modifica o primeiro.
  * 
  * @param lhs lado esquerdo da soma (recebe o resultado).

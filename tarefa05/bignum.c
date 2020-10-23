@@ -154,6 +154,43 @@ result_code bignum_parse(bignum* dest, const char* str) {
     return SUCCESS;
 }
 
+int bignum_cmp(const bignum* lhs, const bignum* rhs) {
+    assert(lhs != NULL);
+    assert(lhs->internal != NULL);
+    assert(rhs != NULL);
+    assert(rhs->internal != NULL);
+
+    node_ptr current_lhs = lhs->internal,
+             current_rhs = rhs->internal;
+
+    // Compara cada item das listas. A ideia é manter o resultado do maior
+    // item até o momento (uma vez que ele é sempre o mais significativo) que
+    // não foi igual nos dois números.
+    int current_cmp = 0;
+    while (current_lhs != NULL && current_rhs != NULL) {
+        if (current_lhs->data < current_rhs->data) {
+            current_cmp = -1;
+        } else if (current_lhs->data > current_rhs->data) {
+            current_cmp = 1;
+        }
+
+        current_lhs = current_lhs->next;
+        current_rhs = current_rhs->next;
+    }
+
+    // As listas ainda podem ter tamanhos diferentes, então temos que tratar
+    // esse caso.
+    if (current_lhs == NULL && current_rhs != NULL) {
+        return -1;
+    } else if (current_lhs != NULL && current_rhs == NULL) {
+        return 1;
+    }
+
+    // Se as listas tinham o mesmo tamanho, a comparação dos últimos itens
+    // diferentes nelas dão o resultado.
+    return current_cmp;
+}
+
 result_code bignum_add(bignum* lhs, const bignum* rhs) {
     assert(lhs != NULL);
     assert(lhs->internal != NULL);
@@ -257,7 +294,7 @@ int main() {
     bignum_init(&big2);
 
     bignum_parse(&big1, "1000000000000000000");
-    bignum_copy(&big2, &big1);
+    bignum_parse(&big2, "12345678910111213");
 
     node_ptr current = big1.internal;
     while (current) {
@@ -272,6 +309,8 @@ int main() {
         current = current->next;
     }
     printf("<END>\n");
+
+    printf("%d\n", bignum_cmp(&big1, &big2));
 
     bignum_destroy(&big1);
     bignum_destroy(&big2);
