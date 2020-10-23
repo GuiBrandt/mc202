@@ -126,6 +126,16 @@ inline static result_code extend_if_needed(node_ptr node) {
 }
 
 /**
+ * @brief Verifica se um número grande a partir de um nó equivale a 0.
+ * 
+ * @param node Nó inicial do número grande.
+ * @return true se o número for 0 e false caso contrário. 
+ */
+bool is_zero(const node_ptr node) {
+    return node->next == NULL && node->data == 0;
+}
+
+/**
  * @brief Reverte a lista ligada de um número grande in-place.
  * 
  * @param ptr Ponteiro para o número grande.
@@ -145,13 +155,31 @@ void reverse(bignum* ptr) {
 }
 
 /**
- * @brief Verifica se um número grande a partir de um nó equivale a 0.
+ * @brief Adiciona um valor ao início da lista em um número grande.
  * 
- * @param node Nó inicial do número grande.
- * @return true se o número for 0 e false caso contrário. 
+ * Equivalente a deslocar para a esquerda e definir o bit menos significativo,
+ * mas em base ITEM_MAX.
+ * 
+ * @param dest Número grande sendo manipulado.
+ * @param data Valor número do item menos significativo.
+ * 
+ * @return SUCCESS ou FAIL_OOM.
  */
-bool is_zero(const node_ptr node) {
-    return node->next == NULL && node->data == 0;
+result_code push_front(bignum* dest, bignum_item data) {
+    if (is_zero(dest->internal)) {
+        dest->internal->data = data;
+        
+    } else {
+        node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
+        if (lsb == NULL)
+            return FAIL_OOM;
+
+        lsb->data = data;
+        lsb->next = dest->internal;
+        dest->internal = lsb;
+    }
+
+    return SUCCESS;
 }
 
 #ifdef NDEBUG
@@ -498,17 +526,16 @@ result_code bignum_parse(bignum* dest, const char* str) {
     // significativos devem estar no começo da lista. Isso facilita
     // crescer a lista quando estourarmos o limite de um nó.
     // Também mantemos um contador para a potência de 10 sendo aplicada.
-    int pow = 1;
-    for (int i = strlen(str) - 1; i >= 0; i--, pow *= 10) {
-
-        // Se adicionar um dígito estouraria nosso limite, criamos um
-        // novo nó para armazenar o resto.
+    for (int i = strlen(str) - 1, pow = 1; i >= 0; i--, pow *= 10) {
         if (pow >= ITEM_MAX) {
+            // Aqui assumimos que a base é sempre uma potência de 10, então
+            // não é necessário fazer carry over dos valores nem nada do
+            // gênero
             current = current->next = new_node();
             if (current == NULL)
                 return FAIL_OOM;
 
-            pow = 1; // Redefinimos a potência de 10 para o próximo nó
+            pow = 1;
         }
 
         assert('0' <= str[i] && str[i] <= '9');
@@ -529,15 +556,14 @@ result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
     size_t i;
     int pow = 1;
     for (i = 0; current != NULL && i < len - 1; i++) {
-        // Valor do nó atual deslocado pela potência de 10 atual.
         bignum_item q = current->data / pow;
         if (q == 0 && current->next == NULL)
             break;
 
-        // O dígito atual é o resto da divisão do valor deslocade por 10.
-        dest[i] = '0' + q % 10;
+        int digit = q % 10;
 
-        // Aumenta a potência de dez e avança um nó caso preciso.
+        dest[i] = '0' + digit;
+
         pow *= 10;
         if (pow >= ITEM_MAX) {
             current = current->next;
@@ -545,18 +571,19 @@ result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
         }
     }
 
-    // Se chegou no final da string, acabou o espaço (não cabe nem o \0!).
     if (i == len)
         return FAIL_STRING_OVERFLOW;
 
-    // Inverte a string, uma vez que a lista começa dos dígitos menos
-    // significativos e em uma string geralmente queremos o contrário.
+    // Temos que inverter a string, porque na lista os valores menos
+    // significativos ficam próximos do começo e em uma string geralmente
+    // queremos o contrário.
     for (size_t j = 0; j < i / 2; j++) {
         char swap = dest[j];
         dest[j] = dest[i - j - 1];
         dest[i - j - 1] = swap;
     }
 
+    // Caso especial: n = 0.
     if (i == 0) {
         dest[i] = '0';
         i++;
@@ -590,7 +617,7 @@ int bignum_cmp(const bignum* lhs, const bignum* rhs) {
     }
 
     // As listas ainda podem ter tamanhos diferentes, então temos que tratar
-    // esse caso.
+    // esse caso. Aqui é importante que zeros à esquerda não existam.
     if (current_lhs == NULL && current_rhs != NULL) {
         return -1;
     } else if (current_lhs != NULL && current_rhs == NULL) {
@@ -623,7 +650,6 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
         // menos eficiente (a complexidade do algoritmo continua a mesma, de
         // toda forma).
         bignum aux;
-
         EXPECT(bignum_init(&aux));
         TRY(bignum_copy(&aux, rhs), ON_FAIL(bignum_destroy(&aux)));
         
@@ -645,31 +671,30 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     assert_valid(lhs);
     assert_valid(rhs);
 
-    // Cria um bignum auxiliar para receber o resultado sem destruir o lado
-    // esquerdo.
+    // Cria um bignum auxiliar para receber os resultados parciais sem destruir
+    // o lado esquerdo, que é reutilizados durante o processo.
     bignum aux;
-
     EXPECT(bignum_init(&aux));
 
     // Caso especial: se lhs = 0, o retorno é 0.
     // Este caso é tratado separadamente porque é o único caso em que seria
     // possível introduzir zeros à esquerda no número, por conta do próximo
-    // passo.
+    // passo, e zeros à esquerda atrapalham no resto do programa.
     if (lhs->internal->next == NULL && bignum_cmp(lhs, &aux) == 0) {
         bignum_destroy(&aux);
         return SUCCESS;
     }
 
-    // Percorremos para elemento do lado direito para multiplicar pelos
-    // elementos do lado esquerdo.
-    // Também avançamos na lista do auxiliar ao mesmo tempo, equivalente à
-    // multiplicação pelas potências de 10 que fazemos quando aplicamos o
-    // algoritmo da multiplicação conforme multiplicamos por casas decimais
-    // maiores.
+    // Percorremos o lado direito para multiplicar pelos elementos do lado
+    // esquerdo, subindo também as casas decimais do resultado.
     for (
-        node_ptr current_rhs = rhs->internal, current_aux = aux.internal;
+        node_ptr current_rhs = rhs->internal,
+                 current_aux = aux.internal;
+
         current_rhs != NULL;
-        current_rhs = current_rhs->next, current_aux = current_aux->next
+        
+        current_rhs = current_rhs->next,
+        current_aux = current_aux->next
     ) {
         TRY(multiply_partial(current_aux, lhs, current_rhs->data),
             ON_FAIL(bignum_destroy(&aux)));
@@ -679,7 +704,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
         }
     }
 
-    // Ao final, trocamos o auxiliar com o resultado e o lhs
+    // Ao final, trocamos o auxiliar e o lhs
     node_ptr swap = lhs->internal;
     lhs->internal = aux.internal;
     aux.internal = swap;
@@ -699,65 +724,39 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs) {
         return bignum_init(lhs);
     }
 
-    result_code result = SUCCESS;
-
     bignum quotient;
-    TRY(bignum_init(&quotient), ON_FAIL(goto finish));
+    EXPECT(bignum_init(&quotient));
 
     bignum remainder;
-    TRY(bignum_init(&remainder), ON_FAIL(goto finish));
+    TRY(bignum_init(&remainder), ON_FAIL(bignum_destroy(&quotient)));
 
+    // Invertemos o dividendo para aplicar o algoritmo de divisão.
+    // Daria pra usar uma lista duplamente ligada, mas como só precisamos
+    // disso nessa função não compensa o esforço e custo de manutenção.
     reverse(lhs);
 
+    #define CLEANUP()               \
+        bignum_destroy(&quotient);  \
+        bignum_destroy(&remainder);
+
     for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
-        if (is_zero(remainder.internal)) {
-            remainder.internal->data = it->data;
-
-        } else {
-            node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
-            if (lsb == NULL) {
-                result = FAIL_OOM;
-                goto finish;
-            }
-
-            lsb->data = it->data;
-            lsb->next = remainder.internal;
-            remainder.internal = lsb;
-        }
+        TRY(push_front(&remainder, it->data), ON_FAIL(CLEANUP()));
 
         bignum_item q;
         if (bignum_cmp(&remainder, rhs) >= 0) {
-            TRY(divide_base(&remainder, rhs, &q), ON_FAIL(goto finish));
+            TRY(divide_base(&remainder, rhs, &q), ON_FAIL(CLEANUP()));
         } else {
             q = 0;
         }
 
-        if (is_zero(quotient.internal)) {
-            quotient.internal->data = q;
-
-        } else {
-            node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
-            if (lsb == NULL) {
-                result = FAIL_OOM;
-                goto finish;
-            }
-
-            lsb->data = q;
-            lsb->next = quotient.internal;
-            quotient.internal = lsb;
-        }
+        TRY(push_front(&quotient, q), ON_FAIL(CLEANUP()));
     }
 
     node_ptr swap = lhs->internal;
     lhs->internal = quotient.internal;
     quotient.internal = swap;
     
-finish:
-    if (quotient.internal)
-        bignum_destroy(&quotient);
+    CLEANUP();
     
-    if (remainder.internal)
-        bignum_destroy(&remainder);
-    
-    return result;
+    return SUCCESS;
 }

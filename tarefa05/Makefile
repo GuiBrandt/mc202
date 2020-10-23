@@ -6,8 +6,8 @@ LDFLAGS=-lm
 
 all: calculadora
 
-calculadora: calculadora.o bignum.o
-	$(CC) $(CFLAGS) calculadora.o bignum.o -o calculadora $(LDFLAGS)
+calculadora: calculadora.c bignum.c
+	$(CC) $(CFLAGS) calculadora.c bignum.c -o calculadora $(LDFLAGS)
 
 clean:
 	rm -f calculadora

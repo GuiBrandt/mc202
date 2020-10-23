@@ -34,5 +34,6 @@
 			"-g"
 		],
 		"C_Cpp.default.cStandard": "c99",
+		"editor.rulers": [80]
 	}
 }
