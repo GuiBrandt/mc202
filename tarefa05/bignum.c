@@ -78,9 +78,23 @@ inline static node_ptr new_node() {
 //============================================================================
 
 /**
- * @brief Número máximo de dígitos na base decimal para um único nó da lista.
+ * @brief Valor máximo para um único item na lista, i.e., a base numérica
+ *        adotada para representação dos números. 
+ * 
+ * Este valor não pode ser maior que 1000000000 porque é necessário que o
+ * produto de quaisquer dois itens caiba em 64-bits para o processo de
+ * multiplicação.
  */
 #define ITEM_MAX 1000000000U
+
+#ifdef NDEBUG
+#define assert_valid ((void)0)
+#else
+void assert_valid(bignum* ptr) {
+    assert(ptr != NULL);
+    assert(ptr->internal != NULL);
+}
+#endif
 
 //============================================================================
 // Implementações (Contrato)
@@ -98,11 +112,9 @@ result_code bignum_init(bignum* dest) {
 }
 
 result_code bignum_copy(bignum* dest, const bignum* source) {
-    assert(dest != NULL);
-    assert(dest->internal != NULL);
+    assert_valid(dest);
     assert(dest->internal->next == NULL);
-    assert(source != NULL);
-    assert(source->internal != NULL);
+    assert_valid(source);
     
     node_ptr current_dest = dest->internal,
              current_source = source->internal;
@@ -122,9 +134,20 @@ result_code bignum_copy(bignum* dest, const bignum* source) {
     return SUCCESS;
 }
 
+void bignum_destroy(bignum* dest) {
+    assert_valid(dest);
+
+    node_ptr current = dest->internal, next;
+
+    while (current) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+}
+
 result_code bignum_parse(bignum* dest, const char* str) {
-    assert(dest != NULL);
-    assert(dest->internal != NULL);
+    assert_valid(dest);
     assert(dest->internal->data == 0);
     assert(dest->internal->next == NULL);
     assert(str != NULL);
@@ -137,6 +160,7 @@ result_code bignum_parse(bignum* dest, const char* str) {
     // Também mantemos um contador para a potência de 10 sendo aplicada.
     int pow = 1;
     for (int i = strlen(str) - 1; i >= 0; i--, pow *= 10) {
+
         // Se adicionar um dígito estouraria nosso limite, criamos um
         // novo nó para armazenar o resto.
         if (pow >= ITEM_MAX) {
@@ -147,6 +171,8 @@ result_code bignum_parse(bignum* dest, const char* str) {
             pow = 1; // Redefinimos a potência de 10 para o próximo nó
         }
 
+        assert('0' <= str[i] && str[i] <= '9');
+
         int digit = str[i] - '0';
         current->data += digit * pow;
     }
@@ -155,10 +181,8 @@ result_code bignum_parse(bignum* dest, const char* str) {
 }
 
 int bignum_cmp(const bignum* lhs, const bignum* rhs) {
-    assert(lhs != NULL);
-    assert(lhs->internal != NULL);
-    assert(rhs != NULL);
-    assert(rhs->internal != NULL);
+    assert_valid(lhs);
+    assert_valid(rhs);
 
     node_ptr current_lhs = lhs->internal,
              current_rhs = rhs->internal;
@@ -192,10 +216,8 @@ int bignum_cmp(const bignum* lhs, const bignum* rhs) {
 }
 
 result_code bignum_add(bignum* lhs, const bignum* rhs) {
-    assert(lhs != NULL);
-    assert(lhs->internal != NULL);
-    assert(rhs != NULL);
-    assert(rhs->internal != NULL);
+    assert_valid(lhs);
+    assert_valid(rhs);
 
     node_ptr current_lhs = lhs->internal,
              current_rhs = rhs->internal;
@@ -209,10 +231,8 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
         // e temos que "carregar" o que sobrou para os próximos nós.
         node_ptr current_carry = current_lhs;
         while (current_carry->data >= ITEM_MAX) {
-            // Valor sendo "carregado"
-            int carry = current_carry->data / ITEM_MAX;
 
-            // Valor que sobra
+            int carry = current_carry->data / ITEM_MAX;
             current_carry->data %= ITEM_MAX;
 
             // Criamos um novo nó caso não tenhamos o suficiente
@@ -243,12 +263,13 @@ result_code bignum_subtract_basic(bignum* lhs, const bignum* rhs) {
         // Se o lado direito é maior que o esquerdo, temos que "emprestar" um
         // valor das casas acima para fazer a subtração.
         if (current_rhs->data > current_lhs->data) {
-            // "Empresta" ITEM_MAX da próxima casa decimal, então subtrai.
+
             current_lhs->data += ITEM_MAX;
             current_lhs->data -= current_rhs->data;
 
             // Procuramos um valor não nulo acima e replicamos o passo de
-            // "emprestar" para cada nó no caminho.
+            // "emprestar" para cada nó no caminho, até encontrarmos um que
+            // possamos decrementar.
             node_ptr current_carry = current_lhs->next;
             while (current_carry->data == 0) {
                 current_carry->data = ITEM_MAX - 1;
@@ -270,14 +291,17 @@ result_code bignum_subtract_basic(bignum* lhs, const bignum* rhs) {
 }
 
 result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
-    assert(lhs != NULL);
-    assert(lhs->internal != NULL);
-    assert(rhs != NULL);
-    assert(rhs->internal != NULL);
+    assert_valid(lhs);
+    assert_valid(rhs);
 
     // Se lhs < rhs, temos que trocar os números para calcular a diferença
     // absoluta.
     if (bignum_cmp(lhs, rhs) < 0) {
+
+        // Criamos um auxiliar para copiar o rhs para a operação. Daria para
+        // fazer destruíndo o rhs, mas assim parece mais elegante apesar de
+        // menos eficiente (a complexidade do algoritmo continua a mesma, de
+        // toda forma).
         bignum aux;
 
         result_code result;
@@ -297,19 +321,6 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
 
     } else {
         return bignum_subtract_basic(lhs, rhs);
-    }
-}
-
-void bignum_destroy(bignum* dest) {
-    assert(dest != NULL);
-    assert(dest->internal != NULL);
-
-    node_ptr current = dest->internal, next;
-
-    while (current) {
-        next = current->next;
-        free(current);
-        current = next;
     }
 }
 

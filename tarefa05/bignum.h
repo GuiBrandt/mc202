@@ -82,8 +82,10 @@ void bignum_destroy(bignum* dest);
  * @param str String a ser convertida.
  * 
  * @note A função assume que o ponteiro de destino acabou de ser inicializado,
- *       isto é, o ponteiro é válido mas não contém nenhum valor. O
- *       comportamento é indeterminado caso contrário.
+ *       isto é, o ponteiro é válido mas não contém nenhum valor. 
+ *       Além disso, a função assume que a string passada é válida e
+ *       exclusivamente numérica.
+ *       O comportamento é indeterminado caso as premissas sejam falsas.
  * 
  * @return SUCCESS ou FAIL_OOM. 
  */
