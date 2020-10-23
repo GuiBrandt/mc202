@@ -347,37 +347,79 @@ result_code multiply_partial(
     return result;
 }
 
-// Caso simplificado da divisão, onde lhs / rhs é garantido ter exatamente um
-// dígito na base usada.
-// Faz busca binária nos valores possíveis para determinar o quociente.
-result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
-    bignum_item left = 0, right = ITEM_MAX;
+/**
+ * @brief Copia o produto de um número grande por um número não tão grande para
+ *        um número grande.
+ * 
+ * @param dest Número grande de destino.
+ * @param source Número grande original.
+ * @param mult Multiplicador não tão grande.
+ * 
+ * @return SUCCESS ou FAIL_OOM.
+ */
+result_code copy_product(
+    bignum* dest,
+    const bignum* source,
+    bignum_item mult
+) {
+    for (
+        node_ptr current_source = source->internal,
+                 current_dest = dest->internal;
+        
+        current_source != NULL;
+        
+        current_source = current_source->next, 
+        current_dest = current_dest->next
+    ) {
+        bignum_item p = current_source->data * mult;
 
+        EXPECT(add_with_carry(current_dest, p));
+
+        if (current_source->next != NULL) {
+            EXPECT(extend_if_needed(current_dest));
+        }
+    }
+
+    return SUCCESS;
+}
+
+/**
+ * @brief Caso simplificado da divisão, onde lhs / rhs é garantido ter
+ *        exatamente um dígito na base usada (i.e., é < ITEM_MAX).
+ * 
+ * Faz busca binária nos valores possíveis para determinar o quociente,
+ * retornando o maior valor menor ou igual ao quociente.
+ * 
+ * Ao fim da função, o dividendo fica com o resto da divisão.
+ * 
+ * @param lhs Dividendo.
+ * @param rhs Divisor.
+ * @param out Quociente.
+ * 
+ * @return SUCCESS ou FAIL_OOM.
+ */
+result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
     bignum product;
+    
+    bignum_item left = 0, right = ITEM_MAX, best = 0;
     while (left < right) {
-        bignum_item mid = (left + right) / 2;
+        bignum_item mid = left + (right - left) / 2;
+
         EXPECT(bignum_init(&product));
 
-        node_ptr current = product.internal;
-        for (node_ptr it = rhs->internal; it != NULL; it = it->next) {
-            bignum_item p = it->data * mid;
-
-            TRY(add_with_carry(current, p),
-                ON_FAIL(bignum_destroy(&product)));
-
-            if (it->next != NULL)
-                extend_if_needed(current);
-
-            current = current->next;
-        }
+        TRY(copy_product(&product, rhs, mid),
+            ON_FAIL(bignum_destroy(&product)));
 
         int cmp = bignum_cmp(&product, lhs);
         if (cmp > 0) {
-            right = mid;
+            right = mid; // Direita já é não-inclusiva, não precisa subtrair.
+        
         } else if (cmp < 0) {
             left = mid + 1;
+            best = mid;
+
         } else {
-            left = right = mid + 1;
+            best = left = right = mid;
         }
 
         if (left == right) {
@@ -388,7 +430,7 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
         bignum_destroy(&product);
     }
 
-    *out = left - 1;
+    *out = best; // Maior item menor que o desejado
 
     return SUCCESS;
 }
