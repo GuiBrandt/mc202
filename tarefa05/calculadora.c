@@ -5,10 +5,13 @@
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa05.html 
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include "bignum.h"
+
+inline static void expect(result_code code);
 
 int main() {
     int n;
@@ -19,31 +22,31 @@ int main() {
         scanf("%c ", &operator);
 
         bignum lhs, rhs;
-        bignum_init(&lhs);
-        bignum_init(&rhs);
+        expect(bignum_init(&lhs));
+        expect(bignum_init(&rhs));
 
         char num[25];
         scanf("%s ", num);
-        bignum_parse(&lhs, num);
+        expect(bignum_parse(&lhs, num));
 
         scanf("%s ", num);
-        bignum_parse(&rhs, num);
+        expect(bignum_parse(&rhs, num));
 
         switch (operator) {
             case '+':
-                bignum_add(&lhs, &rhs);
+                expect(bignum_add(&lhs, &rhs));
                 break;
 
             case '-':
-                bignum_subtract(&lhs, &rhs);
+                expect(bignum_subtract(&lhs, &rhs));
                 break;
             
             case '*':
-                bignum_multiply(&lhs, &rhs);
+                expect(bignum_multiply(&lhs, &rhs));
                 break;
             
             case '/':
-                bignum_divide(&lhs, &rhs, NULL);
+                expect(bignum_divide(&lhs, &rhs));
                 break;
             
             default:
@@ -51,7 +54,7 @@ int main() {
         }
 
         char result[52];
-        bignum_sprintf(result, 52, &lhs);
+        expect(bignum_sprintf(result, 52, &lhs));
         printf("%s\n", result);
 
         bignum_destroy(&lhs);
@@ -59,4 +62,17 @@ int main() {
     }
 
     return 0;
+}
+
+inline static void expect(result_code code) {
+    if (code != SUCCESS) {
+        static const char* err[] = {
+            [FAIL_OOM] = "Out of memory",
+            [FAIL_DIVIDE_BY_ZERO] = "Divisão por zero",
+            [FAIL_STRING_OVERFLOW] = "String overflow"
+        };
+
+        fprintf(stderr, "Erro fatal: %s\n", err[code]);
+        exit(-1);
+    }
 }

@@ -11,7 +11,7 @@
  * numérica ainda se aplica, e nós mais próximos da cabeça são menos
  * significativos.
  * 
- * Por exemplo, a lista 0 -> 1 tem valor 0x1 + 1x10^9 = 1000000000.
+ * Por exemplo, a lista 0 -> 1 tem valor 0*1 + 1*10^9 = 10^9.
  * 
  * A base 10^9 foi escolhida porque é sempre possível armazenar a soma e o
  * produto de dois números de menores que 10^9 em 64 bits. Além disso, uma
@@ -25,23 +25,33 @@
 
 #include "bignum.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <alloca.h>
+#include <stdlib.h>     // malloc, free, etc.
+#include <alloca.h>     // alloca :^)
 
-#include <assert.h>
+#include <stdbool.h>    // bool
+#include <string.h>     // strlen
+
+#include <assert.h>     // assert
 
 //============================================================================
 // Definições específicas da implementação
 //============================================================================
 
 /**
+ * @brief Valor máximo para um único item na lista, i.e., a base numérica
+ *        adotada para representação dos números. 
+ * 
+ * Este valor não pode ser maior que 1000000000 porque é necessário que o
+ * produto de quaisquer dois itens ocupe no máximo 64-bits para o processo de
+ * multiplicação.
+ */
+#define ITEM_MAX 1000000U
+
+/**
  * @brief Tipo numérico para um item no número grandão.
  * 
- * Na prática, isso funciona como se cada item na lista ligada fosse um dígito
- * no número grandão, representado em base 18446744073709551616.
+ * O tipo numérico deve ser grande o suficiente para armazenar o produto de
+ * dois inteiros na base numérica escolhida
  */
 typedef unsigned long long bignum_item;
 
@@ -56,12 +66,11 @@ struct _bignum_data {
 typedef struct _bignum_data* node_ptr;
 
 /**
- * @brief Aloca e inicializa um nó.
+ * @brief Aloca e inicializa um nó com 0.
  * 
- * @return ponteiro para o nó aloca e NULL em caso de falha.
+ * @return ponteiro para o nó alocado ou NULL em caso de falha.
  */
 inline static node_ptr new_node() __attribute_malloc__;
-
 inline static node_ptr new_node() {
     node_ptr node = (node_ptr) malloc(sizeof(struct _bignum_data));
 
@@ -88,7 +97,7 @@ inline static node_ptr new_node() {
         expr;                       \
         return __result;            \
     }                               \
-} while (0);
+} while (0)
 
 #define EXPECT(expr) TRY(expr, ON_FAIL())
 
@@ -115,6 +124,11 @@ inline static result_code extend_if_needed(node_ptr node) {
     return SUCCESS;
 }
 
+/**
+ * @brief Reverte a lista ligada de um número grande in-place.
+ * 
+ * @param ptr Ponteiro para o número grande.
+ */
 void reverse(bignum* ptr) {
     node_ptr prev = ptr->internal, current = prev->next;
 
@@ -130,49 +144,59 @@ void reverse(bignum* ptr) {
 }
 
 /**
- * @brief Valor máximo para um único item na lista, i.e., a base numérica
- *        adotada para representação dos números. 
+ * @brief Verifica se um número grande a partir de um nó equivale a 0.
  * 
- * Este valor não pode ser maior que 1000000000 porque é necessário que o
- * produto de quaisquer dois itens caiba em 64-bits para o processo de
- * multiplicação.
+ * @param node Nó inicial do número grande.
+ * @return true se o número for 0 e false caso contrário. 
  */
-#define ITEM_MAX 1000000U
+bool is_zero(const node_ptr node) {
+    return node->next == NULL && node->data == 0;
+}
 
 #ifdef NDEBUG
 #define assert_valid ((void)0)
 #else
+/**
+ * @brief Verifica que um ponteiro de número grande é válido. 
+ */
 void assert_valid(const bignum* ptr) {
     assert(ptr != NULL);
     assert(ptr->internal != NULL);
 }
 #endif
 
-bool is_zero(const node_ptr node) {
-    return node->next == NULL && node->data == 0;
-}
-
 //============================================================================
-// Utilitários (operações)
+// Utilitários (Operações)
 //============================================================================
 
-result_code add_with_carry(node_ptr current_lhs, bignum_item n) {
-    // Esta soma sempre é segura desde que N obedeça os limites de tamanho.
-    current_lhs->data += n;
+/**
+ * @brief Adiciona um valor inteiro a um número grande a partir de um nó,
+ *        aplicando carry over.
+ * 
+ * Essa função aloca nós conforme necessário, caso o carry over aconteça.
+ * 
+ * @param node Nó inicial para aplicar a soma.
+ * @param n Valor a somar.
+ * @return SUCCESS ou FAIL_OOM.
+ */
+result_code add_with_carry(node_ptr node, bignum_item n) {
+
+    // Esta soma sempre é segura (i.e. não estoura o tipo inteiro), desde que N
+    // obedeça os limites de tamanho.
+    node->data += n;
 
     // Por outro lado, temos que considerar que podemos estourar o limite
     // e temos que "carregar" o que sobrou para os próximos nós.
-    node_ptr current_carry = current_lhs;
-    while (current_carry->data >= ITEM_MAX) {
-
+    for (
+        node_ptr current_carry = node;
+        current_carry->data >= ITEM_MAX;
+        current_carry = current_carry->next
+    ) {
         int carry = current_carry->data / ITEM_MAX;
         current_carry->data %= ITEM_MAX;
 
-        // Criamos um novo nó caso não tenhamos o suficiente
         EXPECT(extend_if_needed(current_carry));
-
         current_carry->next->data += carry;
-        current_carry = current_carry->next;
     }
 
     return SUCCESS;
@@ -589,7 +613,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     return SUCCESS;
 }
 
-result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
+result_code bignum_divide(bignum* lhs, const bignum* rhs) {
     if (rhs->internal->data == 0 && rhs->internal->next == NULL) {
         return FAIL_DIVIDE_BY_ZERO;
     }
@@ -602,21 +626,17 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
 
     result_code result = SUCCESS;
 
-    bignum quotient = {0};
+    bignum quotient;
     TRY(bignum_init(&quotient), ON_FAIL(goto finish));
 
-    bool returns_remainder = remainder != NULL;
-
-    if (!returns_remainder) {
-        remainder = (bignum*) alloca(sizeof(bignum));
-        TRY(bignum_init(remainder), ON_FAIL(goto finish));
-    }
+    bignum remainder;
+    TRY(bignum_init(&remainder), ON_FAIL(goto finish));
 
     reverse(lhs);
 
     for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
-        if (is_zero(remainder->internal)) {
-            remainder->internal->data = it->data;
+        if (is_zero(remainder.internal)) {
+            remainder.internal->data = it->data;
 
         } else {
             node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
@@ -626,13 +646,13 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
             }
 
             lsb->data = it->data;
-            lsb->next = remainder->internal;
-            remainder->internal = lsb;
+            lsb->next = remainder.internal;
+            remainder.internal = lsb;
         }
 
         bignum_item q;
-        if (bignum_cmp(remainder, rhs) >= 0) {
-            TRY(divide_base(remainder, rhs, &q), ON_FAIL(goto finish));
+        if (bignum_cmp(&remainder, rhs) >= 0) {
+            TRY(divide_base(&remainder, rhs, &q), ON_FAIL(goto finish));
         } else {
             q = 0;
         }
@@ -661,8 +681,8 @@ finish:
     if (quotient.internal)
         bignum_destroy(&quotient);
     
-    if (!returns_remainder && remainder->internal)
-        bignum_destroy(remainder);
+    if (remainder.internal)
+        bignum_destroy(&remainder);
     
     return result;
 }
