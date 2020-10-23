@@ -205,10 +205,11 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
             current_lhs->data -= current_rhs->data;
 
             // Se formos deixar algum zero à esquerda, liberamos o nó
-            // correspondente.
+            // correspondente e paramos a iteração.
             if (prev_lhs && current_lhs->data == 0 && current_lhs->next == NULL) {
                 prev_lhs->next = NULL;
                 free(current_lhs);
+                break;
             }
         }
 
