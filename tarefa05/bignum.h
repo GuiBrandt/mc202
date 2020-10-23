@@ -48,7 +48,8 @@ typedef enum {
  * 
  * @return SUCCESS ou FAIL_OOM.
  */
-result_code bignum_init(bignum* dest);
+result_code bignum_init(bignum* dest)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Copia um número grande para outro número grande.
@@ -62,7 +63,8 @@ result_code bignum_init(bignum* dest);
  * 
  * @return SUCCESS ou FAIL_OOM.
  */
-result_code bignum_copy(bignum* dest, const bignum* source);
+result_code bignum_copy(bignum* dest, const bignum* source)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Libera os recursos criados para um número grande.
@@ -89,7 +91,8 @@ void bignum_destroy(bignum* dest);
  * 
  * @return SUCCESS ou FAIL_OOM. 
  */
-result_code bignum_parse(bignum* dest, const char* str);
+result_code bignum_parse(bignum* dest, const char* str)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Converte um número bem grande em uma string.
@@ -101,7 +104,8 @@ result_code bignum_parse(bignum* dest, const char* str);
  * @return SUCCESS ou FAIL_STRING_OVERFLOW, caso o número não caiba na string
  *         passada.
  */
-result_code bignum_sprintf(char* str, size_t len, const bignum* source);
+result_code bignum_sprintf(char* str, size_t len, const bignum* source)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Compara dois números grandes.
@@ -121,7 +125,8 @@ int bignum_cmp(const bignum* lhs, const bignum* rhs);
  * 
  * @return SUCCESS ou FAIL_OOM.
  */
-result_code bignum_add(bignum* lhs, const bignum* rhs);
+result_code bignum_add(bignum* lhs, const bignum* rhs)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Subtrai um número grande de outro, mantendo o resultado positivo
@@ -132,7 +137,8 @@ result_code bignum_add(bignum* lhs, const bignum* rhs);
  * 
  * @return SUCCESS ou FAIL_OOM.
  */
-result_code bignum_subtract(bignum* lhs, const bignum* rhs);
+result_code bignum_subtract(bignum* lhs, const bignum* rhs)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Multiplica dois números grandes, alterando o primeiro.
@@ -142,7 +148,8 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs);
  * 
  * @return SUCCESS ou FAIL_OOM.
  */
-result_code bignum_multiply(bignum* lhs, const bignum* rhs);
+result_code bignum_multiply(bignum* lhs, const bignum* rhs)
+    __attribute__ ((warn_unused_result));
 
 /**
  * @brief Divide dois números grandes, alterando o primeiro.
@@ -157,6 +164,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs);
  * 
  * @return SUCCESS, FAIL_OOM ou FAIL_DIVIDE_BY_ZERO caso rhs == 0.
  */
-result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder);
+result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder)
+    __attribute__ ((warn_unused_result));
 
 #endif // __BIGNUM_H__

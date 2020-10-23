@@ -75,7 +75,25 @@ inline static node_ptr new_node() {
 }
 
 //============================================================================
-// Utilitários
+// Utilitários (Tratamento de erro)
+//============================================================================
+
+#define TRY(expr, on_fail) do {     \
+    result_code __result = (expr);  \
+    on_fail;                        \
+} while (0)
+
+#define ON_FAIL(expr) do {          \
+    if (__result != SUCCESS) {      \
+        expr;                       \
+        return __result;            \
+    }                               \
+} while (0);
+
+#define EXPECT(expr) TRY(expr, ON_FAIL())
+
+//============================================================================
+// Utilitários (Lista ligada)
 //============================================================================
 
 /**
@@ -95,6 +113,20 @@ inline static result_code extend_if_needed(node_ptr node) {
     }
 
     return SUCCESS;
+}
+
+void reverse(bignum* ptr) {
+    node_ptr prev = ptr->internal, current = prev->next;
+
+    while (current != NULL) {
+        node_ptr next = current->next;
+        current->next = prev;
+        prev = current;
+        current = next;
+    }
+
+    ptr->internal->next = NULL;
+    ptr->internal = prev;
 }
 
 /**
@@ -120,6 +152,10 @@ bool is_zero(const node_ptr node) {
     return node->next == NULL && node->data == 0;
 }
 
+//============================================================================
+// Utilitários (operações)
+//============================================================================
+
 result_code add_with_carry(node_ptr current_lhs, bignum_item n) {
     // Esta soma sempre é segura desde que N obedeça os limites de tamanho.
     current_lhs->data += n;
@@ -133,9 +169,7 @@ result_code add_with_carry(node_ptr current_lhs, bignum_item n) {
         current_carry->data %= ITEM_MAX;
 
         // Criamos um novo nó caso não tenhamos o suficiente
-        result_code result;
-        if ((result = extend_if_needed(current_carry)) != SUCCESS)
-            return result;
+        EXPECT(extend_if_needed(current_carry));
 
         current_carry->next->data += carry;
         current_carry = current_carry->next;
@@ -151,17 +185,13 @@ result_code add_at_node(node_ptr current_lhs, const bignum* rhs) {
         current_lhs = current_lhs->next, current_rhs = current_rhs->next
     ) {
         bignum_item n = current_rhs->data;
-        result_code result;
 
         // Essa soma sempre é segura, pois garantimos que os dados são menores
         // que 10^9, e portanto sua soma sempre cabe no tipo inteiro usado.
-        if ((result = add_with_carry(current_lhs, n)) != SUCCESS)
-            return result;
+        EXPECT(add_with_carry(current_lhs, n));
 
         if (current_rhs->next != NULL) {
-            result_code result;
-            if ((result = extend_if_needed(current_lhs)) != SUCCESS)
-                return result;
+            EXPECT(extend_if_needed(current_lhs));
         }
     }
 
@@ -232,14 +262,11 @@ result_code multiply_partial(
     if (fixed->data == 0)
         return SUCCESS;
 
-    result_code result = SUCCESS;
-
     // Criamos mais um bignum auxiliar, dessa vez para armazenar os
     // produtos parciais referentes à multiplicação de cada dígito em rhs
     // pelo valor completo de lhs.
     bignum summand;
-    if ((result = bignum_init(&summand)) != SUCCESS)
-        return result;
+    EXPECT(bignum_init(&summand));
 
     for (
         node_ptr current_lhs = lhs->internal,
@@ -249,37 +276,19 @@ result_code multiply_partial(
         current_summand = current_summand->next
     ) {
         bignum_item product = current_lhs->data * fixed->data;
-        if ((result = add_with_carry(current_summand, product)) != SUCCESS)
-            return result;
+        TRY(add_with_carry(current_summand, product),
+            ON_FAIL(bignum_destroy(&summand)));
 
         if (current_lhs->next != NULL) {
-            result_code result;
-            if ((result = extend_if_needed(current_summand)) != SUCCESS) {
-                bignum_destroy(&summand);
-                return result;
-            }
+            TRY(extend_if_needed(current_summand),
+                ON_FAIL(bignum_destroy(&summand)));
         }
     }
 
     // Então somamos o produto parcial ao total e nos livramos dele
-    result = add_at_node(current_aux, &summand);
+    result_code result = add_at_node(current_aux, &summand);
     bignum_destroy(&summand);
-
-    return SUCCESS;
-}
-
-void reverse(bignum* ptr) {
-    node_ptr prev = ptr->internal, current = prev->next;
-
-    while (current != NULL) {
-        node_ptr next = current->next;
-        current->next = prev;
-        prev = current;
-        current = next;
-    }
-
-    ptr->internal->next = NULL;
-    ptr->internal = prev;
+    return result;
 }
 
 // Caso simplificado da divisão, onde lhs / rhs é garantido ter exatamente um
@@ -287,22 +296,18 @@ void reverse(bignum* ptr) {
 // Faz busca binária nos valores possíveis para determinar o quociente.
 result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
     bignum_item left = 0, right = ITEM_MAX;
-    result_code result;
 
     bignum product;
     while (left < right) {
         bignum_item mid = (left + right) / 2;
-        if ((result = bignum_init(&product)) != SUCCESS)
-            return result;
+        EXPECT(bignum_init(&product));
 
         node_ptr current = product.internal;
         for (node_ptr it = rhs->internal; it != NULL; it = it->next) {
             bignum_item p = it->data * mid;
 
-            if ((result = add_with_carry(current, p)) != SUCCESS) {
-                bignum_destroy(&product);
-                return result;
-            }
+            TRY(add_with_carry(current, p),
+                ON_FAIL(bignum_destroy(&product)));
 
             if (it->next != NULL)
                 extend_if_needed(current);
@@ -320,10 +325,8 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
         }
 
         if (left == right) {
-            if ((result = bignum_subtract(lhs, &product)) != SUCCESS) {
-                bignum_destroy(&product);
-                return result;
-            }
+            TRY(bignum_subtract(lhs, &product),
+                ON_FAIL(bignum_destroy(&product)));
         }
 
         bignum_destroy(&product);
@@ -522,20 +525,16 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
         // toda forma).
         bignum aux;
 
-        result_code result;
-        if ((result = bignum_init(&aux)) != SUCCESS)
-            return result;
+        EXPECT(bignum_init(&aux));
+        TRY(bignum_copy(&aux, rhs), ON_FAIL(bignum_destroy(&aux)));
+        
+        node_ptr swap = lhs->internal;
+        lhs->internal = aux.internal;
+        aux.internal = swap;
 
-        if ((result = bignum_copy(&aux, rhs)) == SUCCESS) {
-            node_ptr swap = lhs->internal;
-            lhs->internal = aux.internal;
-            aux.internal = swap;
-
-            subtract_base(lhs, &aux);
-        }
-
+        subtract_base(lhs, &aux);
         bignum_destroy(&aux);
-        return result;
+        return SUCCESS;
 
     } else {
         subtract_base(lhs, rhs);
@@ -551,9 +550,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     // esquerdo.
     bignum aux;
 
-    result_code result;
-    if ((result = bignum_init(&aux)) != SUCCESS)
-        return result;
+    EXPECT(bignum_init(&aux));
 
     // Caso especial: se lhs = 0, o retorno é 0.
     // Este caso é tratado separadamente porque é o único caso em que seria
@@ -575,19 +572,11 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
         current_rhs != NULL;
         current_rhs = current_rhs->next, current_aux = current_aux->next
     ) {
-        result = multiply_partial(current_aux, current_rhs, lhs);
-
-        if (result != SUCCESS) {
-            bignum_destroy(&aux);
-            return result;
-        }
+        TRY(multiply_partial(current_aux, current_rhs, lhs),
+            ON_FAIL(bignum_destroy(&aux)));
 
         if (current_rhs->next != NULL) {
-            result_code result;
-            if ((result = extend_if_needed(current_aux)) != SUCCESS) {
-                bignum_destroy(&aux);
-                return result;
-            }
+            TRY(extend_if_needed(current_aux), ON_FAIL(bignum_destroy(&aux)));
         }
     }
 
@@ -608,22 +597,19 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     if (bignum_cmp(rhs, lhs) > 0) {
         // Se rhs > lhs, basta zerar o lado esquerdo.
         bignum_destroy(lhs);
-        bignum_init(lhs);
-        return SUCCESS;
+        return bignum_init(lhs);
     }
 
     result_code result = SUCCESS;
 
     bignum quotient = {0};
-    if ((result = bignum_init(&quotient)) != SUCCESS)
-        goto finish;
+    TRY(bignum_init(&quotient), ON_FAIL(goto finish));
 
     bool returns_remainder = remainder != NULL;
 
     if (!returns_remainder) {
         remainder = (bignum*) alloca(sizeof(bignum));
-        if ((result = bignum_init(remainder)) != SUCCESS)
-            goto finish;
+        TRY(bignum_init(remainder), ON_FAIL(goto finish));
     }
 
     reverse(lhs);
@@ -631,6 +617,7 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
         if (is_zero(remainder->internal)) {
             remainder->internal->data = it->data;
+
         } else {
             node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
             if (lsb == NULL) {
@@ -645,8 +632,7 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
 
         bignum_item q;
         if (bignum_cmp(remainder, rhs) >= 0) {
-            if ((result = divide_base(remainder, rhs, &q)) != SUCCESS)
-                goto finish;
+            TRY(divide_base(remainder, rhs, &q), ON_FAIL(goto finish));
         } else {
             q = 0;
         }
