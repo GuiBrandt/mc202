@@ -233,12 +233,8 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
     return SUCCESS;
 }
 
-result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
-    assert(lhs != NULL);
-    assert(lhs->internal != NULL);
-    assert(rhs != NULL);
-    assert(rhs->internal != NULL);
-
+// Implementação de subtração assumindo que lhs >= rhs.
+result_code bignum_subtract_basic(bignum* lhs, const bignum* rhs) {
     node_ptr current_lhs = lhs->internal,
              current_rhs = rhs->internal;
 
@@ -273,6 +269,37 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
     return SUCCESS;
 }
 
+result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
+    assert(lhs != NULL);
+    assert(lhs->internal != NULL);
+    assert(rhs != NULL);
+    assert(rhs->internal != NULL);
+
+    // Se lhs < rhs, temos que trocar os números para calcular a diferença
+    // absoluta.
+    if (bignum_cmp(lhs, rhs) < 0) {
+        bignum aux;
+
+        result_code result;
+        if ((result = bignum_init(&aux)) != SUCCESS)
+            return result;
+
+        if ((result = bignum_copy(&aux, rhs)) == SUCCESS) {
+            node_ptr swap = lhs->internal;
+            lhs->internal = aux.internal;
+            aux.internal = swap;
+
+            result = bignum_subtract_basic(lhs, &aux);
+        }
+
+        bignum_destroy(&aux);
+        return result;
+
+    } else {
+        return bignum_subtract_basic(lhs, rhs);
+    }
+}
+
 void bignum_destroy(bignum* dest) {
     assert(dest != NULL);
     assert(dest->internal != NULL);
@@ -294,7 +321,7 @@ int main() {
     bignum_init(&big2);
 
     bignum_parse(&big1, "1000000000000000000");
-    bignum_parse(&big2, "12345678910111213");
+    bignum_parse(&big2, "1000000000000000000");
 
     node_ptr current = big1.internal;
     while (current) {
@@ -303,14 +330,15 @@ int main() {
     }
     printf("<END>\n");
 
+    bignum_subtract(&big2, &big1);
+    bignum_add(&big2, &big1);
+
     current = big2.internal;
     while (current) {
         printf("%llu -> ", current->data);
         current = current->next;
     }
     printf("<END>\n");
-
-    printf("%d\n", bignum_cmp(&big1, &big2));
 
     bignum_destroy(&big1);
     bignum_destroy(&big2);
