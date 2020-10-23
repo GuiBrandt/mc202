@@ -90,7 +90,7 @@ inline static node_ptr new_node() {
 #ifdef NDEBUG
 #define assert_valid ((void)0)
 #else
-void assert_valid(bignum* ptr) {
+void assert_valid(const bignum* ptr) {
     assert(ptr != NULL);
     assert(ptr->internal != NULL);
 }
@@ -180,6 +180,48 @@ result_code bignum_parse(bignum* dest, const char* str) {
     return SUCCESS;
 }
 
+result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
+    assert(dest != NULL);
+    assert_valid(source);
+
+    node_ptr current = source->internal;
+    
+    size_t i;
+    int pow = 1;
+    for (i = 0; current != NULL && i < len - 1; i++) {
+        // Valor do nó atual deslocado pela potência de 10 atual.
+        int q = current->data / pow;
+        if (q == 0 && current->next == NULL)
+            break;
+
+        // O dígito atual é o resto da divisão do valor deslocade por 10.
+        dest[i] = '0' + q % 10;
+
+        // Aumenta a potência de dez e avança um nó caso preciso.
+        pow *= 10;
+        if (pow >= ITEM_MAX) {
+            current = current->next;
+            pow = 1;
+        }
+    }
+
+    // Se chegou no final da string, acabou o espaço (não cabe nem o \0!).
+    if (i == len)
+        return FAIL_STRING_OVERFLOW;
+
+    // Inverte a string, uma vez que a lista começa dos dígitos menos
+    // significativos e em uma string geralmente queremos o contrário.
+    for (size_t j = 0; j < i / 2; j++) {
+        char swap = dest[j];
+        dest[j] = dest[i - j - 1];
+        dest[i - j - 1] = swap;
+    }
+
+    dest[i] = '\0';
+
+    return SUCCESS;
+}
+
 int bignum_cmp(const bignum* lhs, const bignum* rhs) {
     assert_valid(lhs);
     assert_valid(rhs);
@@ -254,7 +296,7 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
 }
 
 // Implementação de subtração assumindo que lhs >= rhs.
-result_code bignum_subtract_basic(bignum* lhs, const bignum* rhs) {
+result_code bignum_subtract_base(bignum* lhs, const bignum* rhs) {
     node_ptr current_lhs = lhs->internal,
              current_rhs = rhs->internal;
 
@@ -270,13 +312,23 @@ result_code bignum_subtract_basic(bignum* lhs, const bignum* rhs) {
             // Procuramos um valor não nulo acima e replicamos o passo de
             // "emprestar" para cada nó no caminho, até encontrarmos um que
             // possamos decrementar.
-            node_ptr current_carry = current_lhs->next;
+            node_ptr current_carry = current_lhs->next,
+                     prev = current_lhs;
+
             while (current_carry->data == 0) {
                 current_carry->data = ITEM_MAX - 1;
+                prev = current_carry;
                 current_carry = current_carry->next;
             }
 
-            current_carry->data--;
+            // Se formos deixar algum zero à esquerda, liberamos o nó
+            // correspondente.
+            if (current_carry->data == 1 && current_carry->next == NULL) {
+                prev->next = NULL;
+                free(current_carry);
+            } else {
+                current_carry->data--;
+            }
 
         // Se não, podemos simplesmente subtrair e tudo fica bem
         } else {
@@ -313,14 +365,14 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
             lhs->internal = aux.internal;
             aux.internal = swap;
 
-            result = bignum_subtract_basic(lhs, &aux);
+            result = bignum_subtract_base(lhs, &aux);
         }
 
         bignum_destroy(&aux);
         return result;
 
     } else {
-        return bignum_subtract_basic(lhs, rhs);
+        return bignum_subtract_base(lhs, rhs);
     }
 }
 
@@ -331,8 +383,8 @@ int main() {
     bignum_init(&big1);
     bignum_init(&big2);
 
-    bignum_parse(&big1, "1000000000000000000");
-    bignum_parse(&big2, "1000000000000000000");
+    bignum_parse(&big1, "1");
+    bignum_parse(&big2, "12345678910111213141516");
 
     node_ptr current = big1.internal;
     while (current) {
@@ -342,7 +394,13 @@ int main() {
     printf("<END>\n");
 
     bignum_subtract(&big2, &big1);
-    bignum_add(&big2, &big1);
+    
+    current = big2.internal;
+    while (current) {
+        printf("%llu -> ", current->data);
+        current = current->next;
+    }
+    printf("<END>\n");
 
     current = big2.internal;
     while (current) {
@@ -350,6 +408,13 @@ int main() {
         current = current->next;
     }
     printf("<END>\n");
+
+    char str[24];
+    bignum_sprintf(str, 24, &big1);
+    printf("%s ", str);
+
+    bignum_sprintf(str, 24, &big2);
+    printf("%s\n", str);
 
     bignum_destroy(&big1);
     bignum_destroy(&big2);
