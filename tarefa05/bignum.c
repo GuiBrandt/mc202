@@ -1,10 +1,12 @@
 /**
  * @file bignum.c
  * @author Guilherme G. Brandt (235970)
+ * 
  * @brief Implementação do ADT de número bem grande.
  * 
  * A implementação usa uma lista ligada onde cada elemento da lista é um
- * número por si só. Por questão de eficiência, os itens são números inteiros.
+ * número por si só. Por questão de eficiência, os itens são números inteiros
+ * relativamente grandes.
  * 
  * Na prática, isso funciona como um número em base 10^9 onde cada "dígito"
  * é um elemento na lista. A natureza posicional do sistema de representação
@@ -26,7 +28,6 @@
 #include "bignum.h"
 
 #include <stdlib.h>     // malloc, free, etc.
-#include <alloca.h>     // alloca :^)
 
 #include <stdbool.h>    // bool
 #include <string.h>     // strlen
@@ -45,7 +46,7 @@
  * produto de quaisquer dois itens ocupe no máximo 64-bits para o processo de
  * multiplicação.
  */
-#define ITEM_MAX 1000000U
+#define ITEM_MAX 1000000000U
 
 /**
  * @brief Tipo numérico para um item no número grandão.
@@ -179,6 +180,9 @@ void assert_valid(const bignum* ptr) {
  * @param n Valor a somar.
  * @return SUCCESS ou FAIL_OOM.
  */
+result_code add_with_carry(node_ptr node, bignum_item n)
+    __attribute__((warn_unused_result));
+
 result_code add_with_carry(node_ptr node, bignum_item n) {
 
     // Esta soma sempre é segura (i.e. não estoura o tipo inteiro), desde que N
@@ -202,116 +206,144 @@ result_code add_with_carry(node_ptr node, bignum_item n) {
     return SUCCESS;
 }
 
-result_code add_at_node(node_ptr current_lhs, const bignum* rhs) {
+/**
+ * @brief Soma um número grande a partir de um nó em outro.
+ * 
+ * @param node Nó de destino.
+ * @param rhs Número grande a ser somado.
+ * 
+ * @return SUCESS ou FAIL_OOM.
+ */
+result_code add_at_node(node_ptr node, const bignum* rhs)
+    __attribute__((warn_unused_result));
+
+result_code add_at_node(node_ptr node, const bignum* rhs) {
+
+    // Percorre o número grande sendo somado e a lista começando no nó dado e
+    // soma os valores a cada passo, aplicando carry over.
     for (
         node_ptr current_rhs = rhs->internal;
         current_rhs != NULL;
-        current_lhs = current_lhs->next, current_rhs = current_rhs->next
+        node = node->next, current_rhs = current_rhs->next
     ) {
         bignum_item n = current_rhs->data;
 
-        // Essa soma sempre é segura, pois garantimos que os dados são menores
-        // que 10^9, e portanto sua soma sempre cabe no tipo inteiro usado.
-        EXPECT(add_with_carry(current_lhs, n));
+        EXPECT(add_with_carry(node, n));
 
-        if (current_rhs->next != NULL) {
-            EXPECT(extend_if_needed(current_lhs));
-        }
+        if (current_rhs->next != NULL)
+            EXPECT(extend_if_needed(node));
     }
 
     return SUCCESS;
 }
 
-// Implementação de subtração assumindo que lhs >= rhs.
+/**
+ * @brief Carrega o "empréstimo" da subtração até encontrar algum nó não-nulo.
+ * 
+ * @param current Nó subtraído.
+ */
+void carry_subtract(node_ptr current) {
+    node_ptr current_carry = current->next,
+             prev = current;
+
+    while (current_carry->data == 0) {
+        current_carry->data = ITEM_MAX - 1;
+        prev = current_carry;
+        current_carry = current_carry->next;
+    }
+
+    current_carry->data--;
+
+    // Se formos deixar algum zero à esquerda, liberamos o nó
+    // correspondente.
+    if (is_zero(current_carry)) {
+        prev->next = NULL;
+        free(current_carry);
+    }
+}
+
+/**
+ * @brief Aplica subtração assumindo que lhs >= rhs.
+ * 
+ * @param lhs Minuendo (recebe o resultado).
+ * @param rhs Subtraendo.
+ */
 void subtract_base(bignum* lhs, const bignum* rhs) {
-    node_ptr current_lhs = lhs->internal,
-             prev_lhs = NULL,
-             current_rhs = rhs->internal;
+    for (
+        node_ptr current_lhs = lhs->internal,
+                 prev_lhs = NULL,
+                 current_rhs = rhs->internal;
+        
+        current_rhs != NULL;
 
-    while (current_rhs) {
+        current_lhs = (prev_lhs = current_lhs)->next,
+        current_rhs = current_rhs->next
+    ) {
+        if (current_lhs->data >= current_rhs->data) {
 
-        // Se o lado direito é maior que o esquerdo, temos que "emprestar" um
-        // valor das casas acima para fazer a subtração.
-        if (current_rhs->data > current_lhs->data) {
-
-            current_lhs->data += ITEM_MAX;
-            current_lhs->data -= current_rhs->data;
-
-            // Procuramos um valor não nulo acima e replicamos o passo de
-            // "emprestar" para cada nó no caminho, até encontrarmos um que
-            // possamos decrementar.
-            node_ptr current_carry = current_lhs->next,
-                     prev = current_lhs;
-
-            while (current_carry->data == 0) {
-                current_carry->data = ITEM_MAX - 1;
-                prev = current_carry;
-                current_carry = current_carry->next;
-            }
-
-            // Se formos deixar algum zero à esquerda, liberamos o nó
-            // correspondente.
-            if (current_carry->data == 1 && current_carry->next == NULL) {
-                prev->next = NULL;
-                free(current_carry);
-            } else {
-                current_carry->data--;
-            }
-
-        // Se não, podemos simplesmente subtrair e tudo fica bem
-        } else {
             current_lhs->data -= current_rhs->data;
 
             // Se formos deixar algum zero à esquerda, liberamos o nó
-            // correspondente e paramos a iteração.
+            // correspondente e paramos a iteração, para garantir consistência
+            // na representação do 0.
             if (prev_lhs && is_zero(current_lhs)) {
                 prev_lhs->next = NULL;
                 free(current_lhs);
                 break;
             }
-        }
 
-        prev_lhs = current_lhs;
-        current_lhs = current_lhs->next;
-        current_rhs = current_rhs->next;
+        } else {
+            current_lhs->data += ITEM_MAX;
+            current_lhs->data -= current_rhs->data;
+            
+            carry_subtract(current_lhs);
+        }
     }
 }
 
-// Multiplica um bignum por um único nó, e soma o resultado a um auxiliar
+/**
+ * @brief Multiplica Um número grande por um número não tão grande (< ITEM_MAX)
+ *        e soma o resultado a um nó desejado.
+ * 
+ * @param dest Nó que recebe o produto final.
+ * @param multiplicand Número grande.
+ * @param multiplier Número não tão grande.
+ * 
+ * @return SUCCESS ou FAIL_OOM.
+ */
 result_code multiply_partial(
-    node_ptr current_aux,
-    node_ptr fixed,
-    const bignum* lhs
+    node_ptr dest,
+    const bignum* multiplicand,
+    bignum_item multiplier
 ) {
-    if (fixed->data == 0)
+    if (multiplier == 0)
         return SUCCESS;
 
-    // Criamos mais um bignum auxiliar, dessa vez para armazenar os
-    // produtos parciais referentes à multiplicação de cada dígito em rhs
-    // pelo valor completo de lhs.
     bignum summand;
     EXPECT(bignum_init(&summand));
 
     for (
-        node_ptr current_lhs = lhs->internal,
-                 current_summand = summand.internal;
-        current_lhs != NULL;
-        current_lhs = current_lhs->next,
-        current_summand = current_summand->next
+        node_ptr current_mult = multiplicand->internal,
+                 current_sum = summand.internal;
+        
+        current_mult != NULL;
+
+        current_mult = current_mult->next,
+        current_sum = current_sum->next
     ) {
-        bignum_item product = current_lhs->data * fixed->data;
-        TRY(add_with_carry(current_summand, product),
+        bignum_item product = current_mult->data * multiplier;
+        TRY(add_with_carry(current_sum, product),
             ON_FAIL(bignum_destroy(&summand)));
 
-        if (current_lhs->next != NULL) {
-            TRY(extend_if_needed(current_summand),
+        if (current_mult->next != NULL) {
+            TRY(extend_if_needed(current_sum),
                 ON_FAIL(bignum_destroy(&summand)));
         }
     }
 
-    // Então somamos o produto parcial ao total e nos livramos dele
-    result_code result = add_at_node(current_aux, &summand);
+    result_code result = add_at_node(dest, &summand);
     bignum_destroy(&summand);
+
     return result;
 }
 
@@ -596,7 +628,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
         current_rhs != NULL;
         current_rhs = current_rhs->next, current_aux = current_aux->next
     ) {
-        TRY(multiply_partial(current_aux, current_rhs, lhs),
+        TRY(multiply_partial(current_aux, lhs, current_rhs->data),
             ON_FAIL(bignum_destroy(&aux)));
 
         if (current_rhs->next != NULL) {
