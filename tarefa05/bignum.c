@@ -282,8 +282,7 @@ void reverse(bignum* ptr) {
 // dígito na base usada.
 // Faz busca binária nos valores possíveis para determinar o quociente.
 result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
-    bignum_item left = 0, right = ITEM_MAX - 1;
-
+    bignum_item left = 0, right = ITEM_MAX;
     result_code result;
 
     bignum product;
@@ -314,6 +313,9 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
             left = mid + 1;
         } else {
             left = right = mid + 1;
+        }
+
+        if (left == right) {
             if ((result = bignum_subtract(lhs, &product)) != SUCCESS) {
                 bignum_destroy(&product);
                 return result;
