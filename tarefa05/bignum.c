@@ -97,6 +97,31 @@ result_code bignum_init(bignum* dest) {
     return SUCCESS;
 }
 
+result_code bignum_copy(bignum* dest, const bignum* source) {
+    assert(dest != NULL);
+    assert(dest->internal != NULL);
+    assert(dest->internal->next == NULL);
+    assert(source != NULL);
+    assert(source->internal != NULL);
+    
+    node_ptr current_dest = dest->internal,
+             current_source = source->internal;
+
+    current_dest->data = current_source->data;
+
+    while (current_source->next) {
+        current_source = current_source->next;
+
+        current_dest = current_dest->next = new_node();
+        if (current_dest == NULL)
+            return FAIL_OOM;
+
+        current_dest->data = current_source->data;
+    }
+
+    return SUCCESS;
+}
+
 result_code bignum_parse(bignum* dest, const char* str) {
     assert(dest != NULL);
     assert(dest->internal != NULL);
@@ -130,11 +155,15 @@ result_code bignum_parse(bignum* dest, const char* str) {
 }
 
 result_code bignum_add(bignum* lhs, const bignum* rhs) {
+    assert(lhs != NULL);
+    assert(lhs->internal != NULL);
+    assert(rhs != NULL);
+    assert(rhs->internal != NULL);
+
     node_ptr current_lhs = lhs->internal,
              current_rhs = rhs->internal;
 
     while (current_rhs) {
-
         // Essa soma sempre é segura, pois garantimos que os dados são menores
         // que 10^9, e portanto sua soma sempre cabe no tipo inteiro usado.
         current_lhs->data += current_rhs->data;
@@ -168,10 +197,18 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
 }
 
 result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
+    assert(lhs != NULL);
+    assert(lhs->internal != NULL);
+    assert(rhs != NULL);
+    assert(rhs->internal != NULL);
+
     node_ptr current_lhs = lhs->internal,
              current_rhs = rhs->internal;
 
     while (current_rhs) {
+
+        // Se o lado direito é maior que o esquerdo, temos que "emprestar" um
+        // valor das casas acima para fazer a subtração.
         if (current_rhs->data > current_lhs->data) {
             // "Empresta" ITEM_MAX da próxima casa decimal, então subtrai.
             current_lhs->data += ITEM_MAX;
@@ -186,6 +223,8 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
             }
 
             current_carry->data--;
+
+        // Se não, podemos simplesmente subtrair e tudo fica bem
         } else {
             current_lhs->data -= current_rhs->data;
         }
@@ -198,6 +237,9 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
 }
 
 void bignum_destroy(bignum* dest) {
+    assert(dest != NULL);
+    assert(dest->internal != NULL);
+
     node_ptr current = dest->internal, next;
 
     while (current) {
@@ -215,7 +257,7 @@ int main() {
     bignum_init(&big2);
 
     bignum_parse(&big1, "1000000000000000000");
-    bignum_parse(&big2, "1");
+    bignum_copy(&big2, &big1);
 
     node_ptr current = big1.internal;
     while (current) {
@@ -224,14 +266,11 @@ int main() {
     }
     printf("<END>\n");
 
-    bignum_subtract(&big1, &big2);
-
-    current = big1.internal;
+    current = big2.internal;
     while (current) {
         printf("%llu -> ", current->data);
         current = current->next;
     }
-
     printf("<END>\n");
 
     bignum_destroy(&big1);

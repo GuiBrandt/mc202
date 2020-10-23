@@ -51,6 +51,31 @@ typedef enum {
 result_code bignum_init(bignum* dest);
 
 /**
+ * @brief Copia um número grande para outro número grande.
+ * 
+ * @note A função assume que o ponteiro de destino acabou de ser inicializado,
+ *       isto é, o ponteiro é válido mas não contém nenhum valor. O
+ *       comportamento é indeterminado caso contrário.
+ * 
+ * @param dest Ponteiro de destino.
+ * @param source Ponteiro para o número grande a ser copiado.
+ * 
+ * @return SUCCESS ou FAIL_OOM.
+ */
+result_code bignum_copy(bignum* dest, const bignum* source);
+
+/**
+ * @brief Libera os recursos criados para um número grande.
+ * 
+ * @param dest Ponteiro para um número grande.
+ * 
+ * @note Após chamar a função, o objeto fica **inválido** até a próxima
+ *       chamada a `bignum_init`. Observe que esta função **não libera**
+ *       o ponteiro passado.
+ */
+void bignum_destroy(bignum* dest);
+
+/**
  * @brief Converte uma string em um número bem grande.
  * 
  * @param dest Ponteiro para um número grande pré-inicializado.
@@ -77,17 +102,6 @@ result_code bignum_parse(bignum* dest, const char* str);
 result_code bignum_sprintf(char* str, size_t len, const bignum* source);
 
 /**
- * @brief Libera os recursos criados para um número grande.
- * 
- * @param dest Ponteiro para um número grande.
- * 
- * @note Após chamar a função, o objeto fica **inválido** até a próxima
- *       chamada a `bignum_init`. Observe que esta função **não libera**
- *       o ponteiro passado.
- */
-void bignum_destroy(bignum* dest);
-
-/**
  * @brief Soma dois números grandes, modifica o primeiro.
  * 
  * @param lhs lado esquerdo da soma (recebe o resultado).
@@ -98,7 +112,8 @@ void bignum_destroy(bignum* dest);
 result_code bignum_add(bignum* lhs, const bignum* rhs);
 
 /**
- * @brief Subtrai um número grande de outro, modifica o minuendo.
+ * @brief Subtrai um número grande de outro, mantendo o resultado positivo
+ * (i.e. tira o módulo).
  * 
  * @param lhs minuendo (recebe o resultado).
  * @param rhs subtraendo.
