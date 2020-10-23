@@ -280,23 +280,40 @@ void reverse(bignum* ptr) {
 
 // Caso simplificado da divisão, onde lhs / rhs é garantido ter exatamente um
 // dígito na base usada.
+// Faz busca binária nos valores possíveis para determinar o quociente.
 bignum_item divide_base(bignum* lhs, const bignum* rhs) {
-    bignum_item count = 0;
+    bignum_item left = 0, right = ITEM_MAX - 1;
 
-    if (rhs->internal->next == NULL) {
-        count += lhs->internal->data / rhs->internal->data;
-        
-        if (lhs->internal->next != NULL) {
-            count += ITEM_MAX * lhs->internal->next->data / rhs->internal->data;
+    bignum product;
+    while (left < right) {
+        bignum_item mid = (left + right) / 2;
+        bignum_init(&product);
+
+        node_ptr current = product.internal;
+        for (node_ptr it = rhs->internal; it != NULL; it = it->next) {
+            bignum_item p = it->data * mid;
+            add_with_carry(current, p);
+
+            if (it->next != NULL)
+                extend_if_needed(current);
+
+            current = current->next;
         }
-    } else {
-        while (bignum_cmp(lhs, rhs) >= 0) {
-            subtract_base(lhs, rhs);
-            count++;
+
+        int cmp = bignum_cmp(&product, lhs);
+        if (cmp > 0) {
+            right = mid;
+        } else if (cmp < 0) {
+            left = mid + 1;
+        } else {
+            left = right = mid + 1;
+            bignum_subtract(lhs, &product);
         }
+
+        bignum_destroy(&product);
     }
 
-    return count;
+    return left - 1;
 }
 
 //============================================================================
