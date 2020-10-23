@@ -116,6 +116,10 @@ void assert_valid(const bignum* ptr) {
 }
 #endif
 
+bool is_zero(const node_ptr node) {
+    return node->next == NULL && node->data == 0;
+}
+
 result_code add_with_carry(node_ptr current_lhs, bignum_item n) {
     // Esta soma sempre é segura desde que N obedeça os limites de tamanho.
     current_lhs->data += n;
@@ -206,7 +210,7 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
 
             // Se formos deixar algum zero à esquerda, liberamos o nó
             // correspondente e paramos a iteração.
-            if (prev_lhs && current_lhs->data == 0 && current_lhs->next == NULL) {
+            if (prev_lhs && is_zero(current_lhs)) {
                 prev_lhs->next = NULL;
                 free(current_lhs);
                 break;
@@ -625,7 +629,9 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     reverse(lhs);
 
     for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
-        if (remainder->internal->data != 0 || remainder->internal->next != NULL) {
+        if (is_zero(remainder->internal)) {
+            remainder->internal->data = it->data;
+        } else {
             node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
             if (lsb == NULL) {
                 result = FAIL_OOM;
@@ -635,28 +641,29 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
             lsb->data = it->data;
             lsb->next = remainder->internal;
             remainder->internal = lsb;
-        } else {
-            remainder->internal->data = it->data;
         }
 
+        bignum_item q;
         if (bignum_cmp(remainder, rhs) >= 0) {
-            bignum_item q;
             if ((result = divide_base(remainder, rhs, &q)) != SUCCESS)
                 goto finish;
+        } else {
+            q = 0;
+        }
 
-            if (quotient.internal->data != 0 || quotient.internal->next != NULL) {
-                node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
-                if (lsb == NULL) {
-                    result = FAIL_OOM;
-                    goto finish;
-                }
+        if (is_zero(quotient.internal)) {
+            quotient.internal->data = q;
 
-                lsb->data = q;
-                lsb->next = quotient.internal;
-                quotient.internal = lsb;
-            } else {
-                quotient.internal->data = q;
+        } else {
+            node_ptr lsb = (node_ptr) malloc(sizeof(struct _bignum_data));
+            if (lsb == NULL) {
+                result = FAIL_OOM;
+                goto finish;
             }
+
+            lsb->data = q;
+            lsb->next = quotient.internal;
+            quotient.internal = lsb;
         }
     }
 
