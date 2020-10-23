@@ -586,7 +586,9 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     if ((result = bignum_init(&quotient)) != SUCCESS)
         goto finish;
 
-    if (remainder == NULL) {
+    bool returns_remainder = remainder != NULL;
+
+    if (!returns_remainder) {
         remainder = (bignum*) alloca(sizeof(bignum));
         if ((result = bignum_init(remainder)) != SUCCESS)
             goto finish;
@@ -634,5 +636,9 @@ result_code bignum_divide(bignum* lhs, const bignum* rhs, bignum* remainder) {
     
 finish:
     if (quotient.internal) bignum_destroy(&quotient);
+    if (!returns_remainder) {
+        if (remainder->internal) bignum_destroy(remainder);
+        free(remainder);
+    }
     return result;
 }
