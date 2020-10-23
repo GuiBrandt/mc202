@@ -638,7 +638,6 @@ finish:
     if (quotient.internal) bignum_destroy(&quotient);
     if (!returns_remainder) {
         if (remainder->internal) bignum_destroy(remainder);
-        free(remainder);
     }
     return result;
 }
