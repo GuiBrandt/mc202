@@ -67,7 +67,7 @@ struct _bignum_data {
 typedef struct _bignum_data* node_ptr;
 
 /**
- * @brief Aloca e inicializa um nó com 0.
+ * @brief Aloca e inicializa um nó com 0. O(1).
  * 
  * @return ponteiro para o nó alocado ou NULL em caso de falha.
  */
@@ -107,7 +107,7 @@ inline static node_ptr new_node() {
 //============================================================================
 
 /**
- * @brief Adiciona um próximo para um nó caso ele não tenha.
+ * @brief Adiciona um próximo para um nó caso ele não tenha. O(1).
  * 
  * @param node Nó a ser estendido.
  * 
@@ -126,7 +126,7 @@ inline static result_code extend_if_needed(node_ptr node) {
 }
 
 /**
- * @brief Verifica se um número grande a partir de um nó equivale a 0.
+ * @brief Verifica se um número grande a partir de um nó equivale a 0. O(1).
  * 
  * @param node Nó inicial do número grande.
  * @return true se o número for 0 e false caso contrário. 
@@ -136,7 +136,7 @@ bool is_zero(const node_ptr node) {
 }
 
 /**
- * @brief Reverte a lista ligada de um número grande in-place.
+ * @brief Reverte a lista ligada de um número grande in-place. O(n).
  * 
  * @param ptr Ponteiro para o número grande.
  */
@@ -155,7 +155,7 @@ void reverse(bignum* ptr) {
 }
 
 /**
- * @brief Adiciona um valor ao início da lista em um número grande.
+ * @brief Adiciona um valor ao início da lista em um número grande. O(1).
  * 
  * Equivalente a deslocar para a esquerda e definir o bit menos significativo,
  * mas em base ITEM_MAX.
@@ -202,6 +202,9 @@ void assert_valid(const bignum* ptr) {
  * @brief Adiciona um valor inteiro a um número grande a partir de um nó,
  *        aplicando carry over.
  * 
+ * O(n), onde n = número de dígitos correspondentes à lista começando no nó
+ *                dado.
+ * 
  * Essa função aloca nós conforme necessário, caso o carry over aconteça.
  * 
  * @param node Nó inicial para aplicar a soma.
@@ -237,6 +240,9 @@ result_code add_with_carry(node_ptr node, bignum_item n) {
 /**
  * @brief Soma um número grande a partir de um nó em outro.
  * 
+ * O(n.m), onde n = dígitos em rhs e m = dígitos no número representado pela
+ *                  lista começando no nó de destino.
+ * 
  * @param node Nó de destino.
  * @param rhs Número grande a ser somado.
  * 
@@ -249,6 +255,7 @@ result_code add_at_node(node_ptr node, const bignum* rhs) {
 
     // Percorre o número grande sendo somado e a lista começando no nó dado e
     // soma os valores a cada passo, aplicando carry over.
+    // O(m) * T_loop
     for (
         node_ptr current_rhs = rhs->internal;
         current_rhs != NULL;
@@ -256,11 +263,11 @@ result_code add_at_node(node_ptr node, const bignum* rhs) {
     ) {
         bignum_item n = current_rhs->data;
 
-        EXPECT(add_with_carry(node, n));
+        EXPECT(add_with_carry(node, n)); // O(n)
 
         if (current_rhs->next != NULL)
             EXPECT(extend_if_needed(node));
-    }
+    } // T_loop = O(n)
 
     return SUCCESS;
 }
@@ -268,12 +275,15 @@ result_code add_at_node(node_ptr node, const bignum* rhs) {
 /**
  * @brief Carrega o "empréstimo" da subtração até encontrar algum nó não-nulo.
  * 
+ * O(n), n = dígitos no número correspondente ao nó.
+ * 
  * @param current Nó subtraído.
  */
 void carry_subtract(node_ptr current) {
     node_ptr current_carry = current->next,
              prev = current;
 
+    // O(n)
     while (current_carry->data == 0) {
         current_carry->data = ITEM_MAX - 1;
         prev = current_carry;
@@ -293,10 +303,13 @@ void carry_subtract(node_ptr current) {
 /**
  * @brief Aplica subtração assumindo que lhs >= rhs.
  * 
+ * O(n.m), onde n = dígitos em lhs e m = dígitos em rhs.
+ * 
  * @param lhs Minuendo (recebe o resultado).
  * @param rhs Subtraendo.
  */
 void subtract_base(bignum* lhs, const bignum* rhs) {
+    // O(m) * T_loop
     for (
         node_ptr current_lhs = lhs->internal,
                  prev_lhs = NULL,
@@ -307,7 +320,7 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
         current_lhs = (prev_lhs = current_lhs)->next,
         current_rhs = current_rhs->next
     ) {
-        if (current_lhs->data >= current_rhs->data) {
+        if (current_lhs->data >= current_rhs->data) { // O(1)
 
             current_lhs->data -= current_rhs->data;
 
@@ -324,14 +337,17 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
             current_lhs->data += ITEM_MAX;
             current_lhs->data -= current_rhs->data;
             
-            carry_subtract(current_lhs);
+            carry_subtract(current_lhs); // O(n)
         }
-    }
+    } // T_loop = O(n)
 }
 
 /**
  * @brief Multiplica Um número grande por um número não tão grande (< ITEM_MAX)
  *        e soma o resultado a um nó desejado.
+ * 
+ * O(n.m), n = número de dígitos correspondentes ao nó de destino e
+ *         m = número de dígitos no número grande dado.
  * 
  * @param dest Nó que recebe o produto final.
  * @param multiplicand Número grande.
@@ -350,6 +366,7 @@ result_code multiply_partial(
     bignum summand;
     EXPECT(bignum_init(&summand));
 
+    // O(m) * T_loop
     for (
         node_ptr current_mult = multiplicand->internal,
                  current_sum = summand.internal;
@@ -360,6 +377,8 @@ result_code multiply_partial(
         current_sum = current_sum->next
     ) {
         bignum_item product = current_mult->data * multiplier;
+
+        // O(1), pois summand = 0 no início
         TRY(add_with_carry(current_sum, product),
             ON_FAIL(bignum_destroy(&summand)));
 
@@ -367,9 +386,9 @@ result_code multiply_partial(
             TRY(extend_if_needed(current_sum),
                 ON_FAIL(bignum_destroy(&summand)));
         }
-    }
+    } // T_loop = O(1)
 
-    result_code result = add_at_node(dest, &summand);
+    result_code result = add_at_node(dest, &summand); // O(n.m)
     bignum_destroy(&summand);
 
     return result;
@@ -378,6 +397,9 @@ result_code multiply_partial(
 /**
  * @brief Copia o produto de um número grande por um número não tão grande para
  *        um número grande.
+ * 
+ * O(n.m), n = número de dígitos no número original, m = número de dígitos no
+ *             número de destino no início da função.
  * 
  * @param dest Número grande de destino.
  * @param source Número grande original.
@@ -390,6 +412,7 @@ result_code copy_product(
     const bignum* source,
     bignum_item mult
 ) {
+    // O(n) * T_loop
     for (
         node_ptr current_source = source->internal,
                  current_dest = dest->internal;
@@ -401,12 +424,12 @@ result_code copy_product(
     ) {
         bignum_item p = current_source->data * mult;
 
-        EXPECT(add_with_carry(current_dest, p));
+        EXPECT(add_with_carry(current_dest, p)); // O(m)
 
         if (current_source->next != NULL) {
             EXPECT(extend_if_needed(current_dest));
         }
-    }
+    } // T_loop = O(n)
 
     return SUCCESS;
 }
@@ -417,6 +440,8 @@ result_code copy_product(
  * 
  * Faz busca binária nos valores possíveis para determinar o quociente,
  * retornando o maior valor menor ou igual ao quociente.
+ * 
+ * O(n.m), onde n = dígitos em lhs e m = dígitos em rhs.
  * 
  * Ao fim da função, o dividendo fica com o resto da divisão.
  * 
@@ -430,11 +455,12 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
     bignum product;
     
     bignum_item left = 0, right = ITEM_MAX - 1, best = 0;
-    while (left <= right) {
+    while (left <= right) { // O(log ITEM_MAX = O(1)) * T_loop
         bignum_item mid = left + (right - left) / 2;
 
         EXPECT(bignum_init(&product));
 
+        // O(n), product = 0 e tem sempre O(1) dígito
         TRY(copy_product(&product, rhs, mid),
             ON_FAIL(bignum_destroy(&product)));
 
@@ -451,13 +477,14 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
             left = right + 1;
         }
 
+        // O(n.m), mas não conta em T_loop porque acontece apenas uma vez
         if (left > right) {
-            TRY(bignum_subtract(lhs, &product),
+            TRY(bignum_subtract(lhs, &product), 
                 ON_FAIL(bignum_destroy(&product)));
         }
 
         bignum_destroy(&product);
-    }
+    } // T_loop = O(n)
 
     *out = best; // Maior item menor que o desejado
 
@@ -468,6 +495,7 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
 // Implementações (Contrato)
 //============================================================================
 
+// O(1)
 result_code bignum_init(bignum* dest) {
     assert(dest != NULL);
 
@@ -479,6 +507,7 @@ result_code bignum_init(bignum* dest) {
     return SUCCESS;
 }
 
+// O(n)
 result_code bignum_copy(bignum* dest, const bignum* source) {
     assert_valid(dest);
     assert(dest->internal->next == NULL);
@@ -502,6 +531,7 @@ result_code bignum_copy(bignum* dest, const bignum* source) {
     return SUCCESS;
 }
 
+// O(n)
 void bignum_destroy(bignum* dest) {
     assert_valid(dest);
 
@@ -514,6 +544,7 @@ void bignum_destroy(bignum* dest) {
     }
 }
 
+// O(n), n = tamanho da string
 result_code bignum_parse(bignum* dest, const char* str) {
     assert_valid(dest);
     assert(dest->internal->data == 0);
@@ -547,6 +578,7 @@ result_code bignum_parse(bignum* dest, const char* str) {
     return SUCCESS;
 }
 
+// O(n + m), n = dígitos no número e m = tamanho da string
 result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
     assert(dest != NULL);
     assert_valid(source);
@@ -594,6 +626,7 @@ result_code bignum_sprintf(char* dest, size_t len, const bignum* source) {
     return SUCCESS;
 }
 
+// O(n + m)
 int bignum_cmp(const bignum* lhs, const bignum* rhs) {
     assert_valid(lhs);
     assert_valid(rhs);
@@ -629,6 +662,7 @@ int bignum_cmp(const bignum* lhs, const bignum* rhs) {
     return current_cmp;
 }
 
+// O(n.m)
 result_code bignum_add(bignum* lhs, const bignum* rhs) {
     assert_valid(lhs);
     assert_valid(rhs);
@@ -637,6 +671,7 @@ result_code bignum_add(bignum* lhs, const bignum* rhs) {
     return add_at_node(current_lhs, rhs);
 }
 
+// O(n.m)
 result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
     assert_valid(lhs);
     assert_valid(rhs);
@@ -651,22 +686,23 @@ result_code bignum_subtract(bignum* lhs, const bignum* rhs) {
         // toda forma).
         bignum aux;
         EXPECT(bignum_init(&aux));
-        TRY(bignum_copy(&aux, rhs), ON_FAIL(bignum_destroy(&aux)));
+        TRY(bignum_copy(&aux, rhs), ON_FAIL(bignum_destroy(&aux))); // O(m)
         
         node_ptr swap = lhs->internal;
         lhs->internal = aux.internal;
         aux.internal = swap;
 
-        subtract_base(lhs, &aux);
+        subtract_base(lhs, &aux); // O(n.m)
         bignum_destroy(&aux);
         return SUCCESS;
 
     } else {
-        subtract_base(lhs, rhs);
+        subtract_base(lhs, rhs); // O(n.m)
         return SUCCESS;
     }
 }
 
+// O(n.m)
 result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     assert_valid(lhs);
     assert_valid(rhs);
@@ -687,6 +723,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
 
     // Percorremos o lado direito para multiplicar pelos elementos do lado
     // esquerdo, subindo também as casas decimais do resultado.
+    // O(m) * T_loop
     for (
         node_ptr current_rhs = rhs->internal,
                  current_aux = aux.internal;
@@ -696,13 +733,14 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
         current_rhs = current_rhs->next,
         current_aux = current_aux->next
     ) {
+        // O(n), porque current_aux tem sempre tamanho 1 a cada iteração
         TRY(multiply_partial(current_aux, lhs, current_rhs->data),
             ON_FAIL(bignum_destroy(&aux)));
 
         if (current_rhs->next != NULL) {
             TRY(extend_if_needed(current_aux), ON_FAIL(bignum_destroy(&aux)));
         }
-    }
+    } // T_loop = O(n.m)
 
     // Ao final, trocamos o auxiliar e o lhs
     node_ptr swap = lhs->internal;
