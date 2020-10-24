@@ -25,4 +25,4 @@ test: calculadora
 
 coverage: calculadora test
 	mkdir -p coverage
-	gcovr -r . --html --html-details -o coverage/index.html
+	gcovr -r . --xml -o coverage/coverage.xml
