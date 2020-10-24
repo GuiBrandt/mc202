@@ -126,6 +126,19 @@ inline static result_code extend_if_needed(node_ptr node) {
 }
 
 /**
+ * @brief Libera todos os nós a partir de um nó dado (inclusive).
+ * 
+ * @param node Nó a partir do qual liberar.
+ */
+void drop_from(node_ptr node) {
+    for (node_ptr it = node; it != NULL;) {
+        node_ptr aux = it;
+        it = it->next;
+        free(aux);
+    }
+}
+
+/**
  * @brief Verifica se um número grande a partir de um nó equivale a 0. O(1).
  * 
  * @param node Nó inicial do número grande.
@@ -301,6 +314,22 @@ void carry_subtract(node_ptr current) {
 }
 
 /**
+ * @brief Remove zeros à esquerda (no caso, à direita na lista).
+ * 
+ * @param root Nó raíz a partir de onde buscar zeros.
+ */
+void drop_trailing_zeroes(node_ptr root) {
+    node_ptr last_nonzero = root;
+    for (node_ptr it = root; it != NULL; it = it->next) {
+        if (it->data != 0) last_nonzero = it;
+    }
+
+    drop_from(last_nonzero->next);
+
+    last_nonzero->next = NULL;
+}
+
+/**
  * @brief Aplica subtração assumindo que lhs >= rhs.
  * 
  * O(n.m), onde n = dígitos em lhs e m = dígitos em rhs.
@@ -334,18 +363,7 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
         }
     } // T_loop = O(n)
 
-    node_ptr last_nonzero = lhs->internal;
-    for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
-        if (it->data != 0) last_nonzero = it;
-    }
-
-    for (node_ptr it = last_nonzero->next; it != NULL;) {
-        node_ptr aux = it;
-        it = it->next;
-        free(aux);
-    }
-
-    last_nonzero->next = NULL;
+    drop_trailing_zeroes(lhs->internal);
 }
 
 /**
@@ -547,14 +565,7 @@ result_code bignum_copy(bignum* dest, const bignum* source) {
 // O(n)
 void bignum_destroy(bignum* dest) {
     assert_valid(dest);
-
-    node_ptr current = dest->internal, next;
-
-    while (current) {
-        next = current->next;
-        free(current);
-        current = next;
-    }
+    drop_from(dest->internal);
 }
 
 // O(n), n = tamanho da string
