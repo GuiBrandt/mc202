@@ -1,0 +1,47 @@
+.tarefa05:
+  before_script:
+    - cd tarefa05
+  only:
+    changes:
+      - tarefa05/*.c
+      - tarefa05/*.h
+
+tarefa05:build:
+  extends: .tarefa05
+  stage: build
+  interruptible: true
+  script:
+    - make
+  artifacts:
+      paths:
+        - tarefa05/calculadora
+
+.tarefa05:test:
+  extends: .tarefa05
+  stage: test
+  needs:
+    - job: tarefa05:build
+      artifacts: true
+
+
+tarefa05:memcheck:
+  extends: .tarefa05:test
+  script:
+    - make memcheck
+
+tarefa05:test:
+  extends: .tarefa05:test
+  script:
+    - make test
+  artifacts:
+      paths:
+        - tarefa05/*.gcno
+        - tarefa05/*.gcda
+
+tarefa05:coverage:
+  extends: .tarefa05:test
+  script:
+    - make coverage "COVFLAGS=--xml -o coverage/cobertura.xml"
+  artifacts:
+      reports:
+        cobertura: coverage/cobertura.xml
