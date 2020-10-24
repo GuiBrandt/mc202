@@ -309,6 +309,8 @@ void carry_subtract(node_ptr current) {
  * @param rhs Subtraendo.
  */
 void subtract_base(bignum* lhs, const bignum* rhs) {
+    assert(bignum_cmp(lhs, rhs) >= 0);
+
     // O(m) * T_loop
     for (
         node_ptr current_lhs = lhs->internal,
@@ -320,19 +322,10 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
         current_lhs = (prev_lhs = current_lhs)->next,
         current_rhs = current_rhs->next
     ) {
+        assert(current_lhs != NULL);
+
         if (current_lhs->data >= current_rhs->data) { // O(1)
-
             current_lhs->data -= current_rhs->data;
-
-            // Se formos deixar algum zero à esquerda, liberamos o nó
-            // correspondente e paramos a iteração, para garantir consistência
-            // na representação do 0.
-            if (prev_lhs && is_zero(current_lhs)) {
-                prev_lhs->next = NULL;
-                free(current_lhs);
-                break;
-            }
-
         } else {
             current_lhs->data += ITEM_MAX;
             current_lhs->data -= current_rhs->data;
@@ -340,6 +333,19 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
             carry_subtract(current_lhs); // O(n)
         }
     } // T_loop = O(n)
+
+    node_ptr last_nonzero = lhs->internal;
+    for (node_ptr it = lhs->internal; it != NULL; it = it->next) {
+        if (it->data != 0) last_nonzero = it;
+    }
+
+    for (node_ptr it = last_nonzero->next; it != NULL;) {
+        node_ptr aux = it;
+        it = it->next;
+        free(aux);
+    }
+
+    last_nonzero->next = NULL;
 }
 
 /**
@@ -412,6 +418,9 @@ result_code copy_product(
     const bignum* source,
     bignum_item mult
 ) {
+    if (mult == 0)
+        return SUCCESS;
+
     // O(n) * T_loop
     for (
         node_ptr current_source = source->internal,
@@ -477,14 +486,18 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
             left = right + 1;
         }
 
-        // O(n.m), mas não conta em T_loop porque acontece apenas uma vez
-        if (left > right) {
-            TRY(bignum_subtract(lhs, &product), 
-                ON_FAIL(bignum_destroy(&product)));
-        }
-
         bignum_destroy(&product);
     } // T_loop = O(n)
+
+    EXPECT(bignum_init(&product));
+    
+    TRY(copy_product(&product, rhs, best),
+            ON_FAIL(bignum_destroy(&product)));
+
+    TRY(bignum_subtract(lhs, &product), 
+        ON_FAIL(bignum_destroy(&product)));
+
+    bignum_destroy(&product);
 
     *out = best; // Maior item menor que o desejado
 
