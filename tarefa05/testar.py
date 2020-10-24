@@ -198,23 +198,23 @@ class BaseTask:
 
 class Task(BaseTask):
     def teste_1_soma(self):
-        binary = self.compile(binary="calculadora")
+        binary = self.make(binary="calculadora")
         self.test_cases(binary, ["calculadora1.in","calculadora2.in"])
 
     def teste_2_subtracao(self):
-        binary = self.compile(binary="calculadora")
+        binary = self.make(binary="calculadora")
         self.test_cases(binary, ["calculadora3.in","calculadora4.in"])
 
     def teste_3_multiplicacao(self):
-        binary = self.compile(binary="calculadora")
+        binary = self.make(binary="calculadora")
         self.test_cases(binary, ["calculadora5.in","calculadora6.in"])
 
     def teste_4_todas_operacoes(self):
-        binary = self.compile(binary="calculadora")
+        binary = self.make(binary="calculadora")
         self.test_cases(binary, ["calculadora7.in"])
 
     def teste_5_OPCIONAL_todas_e_divisao(self):
-        binary = self.compile(binary="calculadora")
+        binary = self.make(binary="calculadora")
         self.test_cases(binary, ["calculadora8.in","calculadora9.in", "calculadora10.in", "calculadora11.in"])
 
 

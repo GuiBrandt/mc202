@@ -1,15 +1,16 @@
 CC=gcc
-CFLAGS=-std=c99 -Wall -Werror -Werror=vla -g
-LDFLAGS=-lm
+CFLAGS=-std=c99 -Wall -Werror -Werror=vla -g -ftest-coverage -fprofile-arcs -O0
+LDFLAGS=-lm -lgcov
 
 .PHONY: all clean
 
 all: calculadora
 
-calculadora: calculadora.c bignum.c
-	$(CC) $(CFLAGS) calculadora.c bignum.c -o calculadora $(LDFLAGS)
+calculadora: calculadora.o bignum.o
+	$(CC) calculadora.o bignum.o -o calculadora $(LDFLAGS)
 
 clean:
+	rm -f *.o
 	rm -f calculadora
 
 memcheck: calculadora
@@ -21,3 +22,7 @@ profile: calculadora
 
 test: calculadora
 	python3 testar.py
+
+coverage: calculadora test
+	mkdir -p coverage
+	gcovr -r . --html --html-details -o coverage/index.html
