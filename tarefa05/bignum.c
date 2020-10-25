@@ -367,58 +367,6 @@ void subtract_base(bignum* lhs, const bignum* rhs) {
 }
 
 /**
- * @brief Multiplica Um número grande por um número não tão grande (< ITEM_MAX)
- *        e soma o resultado a um nó desejado.
- * 
- * O(n.m), n = número de dígitos correspondentes ao nó de destino e
- *         m = número de dígitos no número grande dado.
- * 
- * @param dest Nó que recebe o produto final.
- * @param multiplicand Número grande.
- * @param multiplier Número não tão grande.
- * 
- * @return SUCCESS ou FAIL_OOM.
- */
-result_code multiply_partial(
-    node_ptr dest,
-    const bignum* multiplicand,
-    bignum_item multiplier
-) {
-    if (multiplier == 0)
-        return SUCCESS;
-
-    bignum summand;
-    EXPECT(bignum_init(&summand));
-
-    // O(m) * T_loop
-    for (
-        node_ptr current_mult = multiplicand->internal,
-                 current_sum = summand.internal;
-        
-        current_mult != NULL;
-
-        current_mult = current_mult->next,
-        current_sum = current_sum->next
-    ) {
-        bignum_item product = current_mult->data * multiplier;
-
-        // O(1), pois summand = 0 no início
-        TRY(add_with_carry(current_sum, product),
-            ON_FAIL(bignum_destroy(&summand)));
-
-        if (current_mult->next != NULL) {
-            TRY(extend_if_needed(current_sum),
-                ON_FAIL(bignum_destroy(&summand)));
-        }
-    } // T_loop = O(1)
-
-    result_code result = add_at_node(dest, &summand); // O(n.m)
-    bignum_destroy(&summand);
-
-    return result;
-}
-
-/**
  * @brief Copia o produto de um número grande por um número não tão grande para
  *        um número grande.
  * 
@@ -431,8 +379,8 @@ result_code multiply_partial(
  * 
  * @return SUCCESS ou FAIL_OOM.
  */
-result_code copy_product(
-    bignum* dest,
+result_code multiply_partial(
+    node_ptr dest,
     const bignum* source,
     bignum_item mult
 ) {
@@ -442,7 +390,7 @@ result_code copy_product(
     // O(n) * T_loop
     for (
         node_ptr current_source = source->internal,
-                 current_dest = dest->internal;
+                 current_dest = dest;
         
         current_source != NULL;
         
@@ -488,7 +436,7 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
         EXPECT(bignum_init(&product));
 
         // O(n), product = 0 e tem sempre O(1) dígito
-        TRY(copy_product(&product, rhs, mid),
+        TRY(multiply_partial(product.internal, rhs, mid),
             ON_FAIL(bignum_destroy(&product)));
 
         int cmp = bignum_cmp(&product, lhs);
@@ -509,7 +457,7 @@ result_code divide_base(bignum* lhs, const bignum* rhs, bignum_item* out) {
 
     EXPECT(bignum_init(&product));
     
-    TRY(copy_product(&product, rhs, best),
+    TRY(multiply_partial(product.internal, rhs, best),
             ON_FAIL(bignum_destroy(&product)));
 
     TRY(bignum_subtract(lhs, &product), 
@@ -740,7 +688,7 @@ result_code bignum_multiply(bignum* lhs, const bignum* rhs) {
     // Este caso é tratado separadamente porque é o único caso em que seria
     // possível introduzir zeros à esquerda no número, por conta do próximo
     // passo, e zeros à esquerda atrapalham no resto do programa.
-    if (lhs->internal->next == NULL && bignum_cmp(lhs, &aux) == 0) {
+    if (lhs->internal->next == NULL && is_zero(lhs->internal)) {
         bignum_destroy(&aux);
         return SUCCESS;
     }
