@@ -98,30 +98,6 @@ deque_elem_t front(const deque* q) {
     return q->head->elem;
 }
 
-deque_elem_t back(const deque* q) {
-    assert(q != NULL);
-    assert(q->tail != NULL);
-
-    return q->tail->elem;
-}
-
-void pop_back(deque* q) {
-    assert(q != NULL);
-    assert(q->tail != NULL);
-
-    deque_node_t* tail = q->tail;
-    q->tail = tail->prev;
- 
-    if (q->tail == NULL) { // Fila ficou vazia
-        q->head = NULL;
-
-    } else {
-        q->tail->next = NULL;
-    }
-
-    free(tail);
-}
-
 void pop_front(deque* q) {
     assert(q != NULL);
     assert(q->head != NULL);
