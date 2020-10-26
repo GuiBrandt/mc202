@@ -162,6 +162,8 @@ paciente* ler_paciente() {
 
         if (lido != 0 && lido != EOF) {
             push_back(&p->atendimentos, especialidade);
+        } else {
+            free(especialidade);
         }
     } while (lido != 0 && lido != EOF);
 

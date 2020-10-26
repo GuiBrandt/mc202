@@ -30,14 +30,6 @@
 		}
 	],
 	"settings": {
-		"C_Cpp.default.compilerArgs": [
-			"-std=c99",
-			"-Wall",
-			"-Werror",
-			"-Werror=vla",
-			"-g"
-		],
-		"C_Cpp.default.cStandard": "c99",
 		"editor.rulers": [80]
 	}
 }
