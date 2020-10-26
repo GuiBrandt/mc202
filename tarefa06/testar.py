@@ -204,15 +204,15 @@ class BaseTask:
 
 class Task(BaseTask):
     def teste_1_sem_preferenciais(self):
-        binary = self.compile(binary="sala_de_espera")
+        binary = self.make(binary="sala_de_espera")
         self.test_cases(binary, self.case_range("sala_de_espera{}.in", 1, 5))
 
     def teste_2_com_preferenciais(self):
-        binary = self.compile(binary="sala_de_espera")
+        binary = self.make(binary="sala_de_espera")
         self.test_cases(binary, self.case_range("sala_de_espera{}.in", 6, 8))
 
     def teste_3_desempate(self):
-        binary = self.compile(binary="sala_de_espera")
+        binary = self.make(binary="sala_de_espera")
         self.test_cases(binary, self.case_range("sala_de_espera{}.in", 9, 10))
 
 
