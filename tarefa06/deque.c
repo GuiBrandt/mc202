@@ -2,20 +2,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
-typedef struct _node {
-    void* elem;
-    struct _node* prev;
-    struct _node* next;
-} node_t;
-
-struct _deque {
-    node_t* head;
-    node_t* tail;
-};
-
-node_t* make_node(void* elem, node_t* prev, node_t* next) {
-    node_t* node = (node_t*) malloc(sizeof(node_t));
+deque_node_t* make_node(deque_elem_t elem, deque_node_t* prev, deque_node_t* next) {
+    deque_node_t* node = (deque_node_t*) malloc(sizeof(deque_node_t));
 
     if (node == NULL) {
         fprintf(stderr, "Out of memory");
@@ -36,41 +26,45 @@ deque make_deque() {
 void destroy_deque(deque* q) {
     assert(q != NULL);
 
-    node_t* it = q->head;
+    deque_node_t* it = q->head;
 
     while (it != NULL) {
-        node_t* aux = it;
+        deque_node_t* aux = it;
         it = it->next;
         free(aux);
     }
-    
-    free(q);
 }
 
 int is_empty(const deque* q) {
     assert(q != NULL);
 
-    return q->head != NULL;
+    return q->head == NULL;
 }
 
 void push_back(deque* q, deque_elem_t elem) {
     assert(q != NULL);
-    assert(q->tail != NULL);
-    assert(q->tail->next == NULL);
 
-    node_t* node = make_node(elem, q->tail, NULL);
-    q->tail->next = node;
-    q->tail = node;
+    deque_node_t* node = make_node(elem, q->tail, NULL);
+
+    if (q->tail == NULL) {
+        q->head = q->tail = node;
+    } else {
+        q->tail->next = node;
+        q->tail = node;
+    }
 }
 
 void push_front(deque* q, deque_elem_t elem) {
     assert(q != NULL);
-    assert(q->head != NULL);
-    assert(q->head->prev == NULL);
 
-    node_t* node = make_node(elem, NULL, q->head);
-    q->head->prev = node;
-    q->head = node;
+    deque_node_t* node = make_node(elem, NULL, q->head);
+
+    if (q->head == NULL) {
+        q->head = q->tail = node;
+    } else {
+        q->head->prev = node;
+        q->head = node;
+    }
 }
 
 deque_elem_t front(const deque* q) {
@@ -91,7 +85,7 @@ void pop_back(deque* q) {
     assert(q != NULL);
     assert(q->tail != NULL);
 
-    node_t* tail = q->tail;
+    deque_node_t* tail = q->tail;
     q->tail = tail->prev;
  
     if (q->tail == NULL) { // Fila ficou vazia
@@ -108,8 +102,8 @@ void pop_front(deque* q) {
     assert(q != NULL);
     assert(q->head != NULL);
 
-    node_t* head = q->head;
-    q->head = head->prev;
+    deque_node_t* head = q->head;
+    q->head = head->next;
 
     if (q->head == NULL) { // Fila ficou vazia
         q->tail = NULL;

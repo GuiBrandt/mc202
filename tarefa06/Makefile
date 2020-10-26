@@ -5,8 +5,8 @@ LDFLAGS = -lm
 
 all: sala_de_espera
 
-sala_de_espera: sala_de_espera.c
-	gcc $(CFLAGS) sala_de_espera.c -o sala_de_espera $(LDFLAGS)
+sala_de_espera: sala_de_espera.c deque.c
+	gcc $(CFLAGS) sala_de_espera.c deque.c -o sala_de_espera $(LDFLAGS)
 
 clean:
 	rm -f sala_de_espera

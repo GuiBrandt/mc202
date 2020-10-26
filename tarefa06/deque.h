@@ -11,7 +11,7 @@
 /**
  * @brief Tipo para elementos de um deque.
  */
-typedef int deque_elem_t;
+typedef void* deque_elem_t;
 
 /**
  * @brief Estrutura de nó do deque. 
@@ -35,8 +35,7 @@ typedef struct {
  * 
  * @return um deque.
  */
-deque make_deque()
-    __attribute__((malloc));
+deque make_deque();
 
 /**
  * @brief Libera os recursos alocados para um deque.
@@ -46,7 +45,6 @@ deque make_deque()
  *       por liberar um ponteiro recai sobre quem o aloca. 
  * 
  * @param q o deque.
- * 
  */
 void destroy_deque(deque* q);
 
@@ -99,12 +97,18 @@ deque_elem_t back(const deque* q);
 /**
  * @brief Remove um elemento do começo da fila.
  * 
+ * @note Essa função não libera a memória do elemento armazenado, isso deve ser
+ *       feito pelo usuário caso necessário.
+ * 
  * @param q a fila.
  */
 void pop_back(deque* q);
 
 /**
  * @brief Remove um elemento do começo da fila.
+ * 
+ * @note Essa função não libera a memória do elemento armazenado, isso deve ser
+ *       feito pelo usuário caso necessário.
  * 
  * @param q a fila.
  */
