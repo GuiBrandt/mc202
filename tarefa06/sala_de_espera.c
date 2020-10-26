@@ -9,24 +9,110 @@
 
 #include "deque.h"
 
-#include <string.h>
+#include "paciente.h"
+
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
-#define MAX_NOME 50
+//=============================================================================
+// DEFINIÇÕES
+//=============================================================================
 
-typedef enum {
-    NORMAL,
-    PREFERENCIAL
-} prioridade_t;
+/**
+ * @brief Lê entrada formatada como especificado no enunciado da tarefa para
+ *        uma lista de pacientes.
+ * 
+ * @param pacientes a lista de pacientes.
+ */
+void ler_entrada(deque* pacientes);
 
-typedef struct {
-    char nome[MAX_NOME + 1];
-    prioridade_t prioridade;
-    deque atendimentos;
-    int sendo_atendido;
-} paciente;
+/**
+ * @brief Escreve o horário de saída e o nome de um paciente.
+ * 
+ * @param tempo tempo de saída, cada unidade equivale a 10 minutos após as 8h
+ * @param paciente o paciente.
+ */
+void escrever_saida(int tempo, const paciente_t* paciente);
+
+/**
+ * @brief Enfileira os pacientes nas filas de atendimento conforme necessário.
+ * 
+ * Esta função avança a fila de atendimentos para cada paciente enfileirado e
+ * libera a memória alocada para armazenar o atendimento para o qual o paciente
+ * foi enfileirado.
+ * 
+ * @param pacientes a lista de pacientes.
+ * @param filas um array com filas para cada especialidade.
+ */
+void enfileirar_pacientes(deque* pacientes, deque filas[]);
+
+/**
+ * @brief Aplica o atendimento, avançando as filas e dando saída nos pacientes
+ *        que não têm mais atendimentos marcados.
+ * 
+ * Esta função libera a memória alocada para pacientes cujo atendimento
+ * terminou.
+ * 
+ * @param tempo tempo de atendimento, cada unidade equivale a 10 minutos após
+ *              as 8h
+ * @param pacientes a lista de pacientes. 
+ * @param filas um array com filas para cada especialidade.
+ */
+void atender_pacientes(int tempo, deque* pacientes, deque filas[]);
+
+//=============================================================================
+// PONTO DE ENTRADA
+//=============================================================================
+
+int main() {
+    deque filas[9];
+    for (int i = 0; i < 9; i++) {
+        filas[i] = make_deque();
+    }
+
+    deque pacientes = make_deque();
+    ler_entrada(&pacientes);
+
+    for (int tempo = 1; !is_empty(&pacientes); tempo++) {
+        enfileirar_pacientes(&pacientes, filas);
+        atender_pacientes(tempo, &pacientes, filas);
+    }
+
+    destroy_deque(&pacientes);
+
+    for (int i = 0; i < 9; i++) {
+        destroy_deque(&filas[i]);
+    }
+
+    return 0;
+}
+
+//=============================================================================
+// IMPLEMENTAÇÕES (Atendimento)
+//=============================================================================
+
+void enfileirar_pacientes(deque* pacientes, deque filas[]) {
+    for (deque_node_t* it = pacientes->head; it != NULL; it = it->next) {
+        paciente_t* paciente = (paciente_t*) it->elem;
+
+        if (paciente->sendo_atendido)
+            continue;
+
+        paciente->sendo_atendido = 1;
+        
+        deque* atendimentos = &paciente->atendimentos;
+
+        int* especialidade = (int*) front(atendimentos);
+        deque* fila = &filas[*especialidade];
+        free(especialidade);
+
+        if (paciente->prioridade == PREFERENCIAL) {
+            push_front(fila, it);
+        } else {
+            push_back(fila, it);
+        }
+    }
+}
 
 static int CAPACIDADE[] = {
     10,
@@ -40,134 +126,45 @@ static int CAPACIDADE[] = {
     4
 };
 
-paciente* ler_paciente();
+void atender_pacientes(int tempo, deque* pacientes, deque filas[]) {
+    for (int i = 0; i < 9; i++) {
+        deque* fila = &filas[i];
 
-int main() {
-    deque filas[9];
-    for (int i = 0; i < 9; i++)
-        filas[i] = make_deque();
+        for (int j = 0; !is_empty(fila) && j < CAPACIDADE[i]; j++) {
+            deque_node_t* node = (deque_node_t*) front(fila);
+            pop_front(fila);
 
-    deque pacientes = make_deque();
+            paciente_t* paciente = (paciente_t*) node->elem;
+            paciente->sendo_atendido = 0;
 
-    paciente* p;
-    do {
-        p = ler_paciente();
-
-        if (p) {
-            push_back(&pacientes, p);
-        }
-    } while (p);
-
-    for (int tempo = 1; !is_empty(&pacientes); tempo++) {
-        for (deque_node_t* it = pacientes.head; it != NULL; it = it->next) {
-            paciente* p = (paciente*) it->elem;
-
-            if (p->sendo_atendido)
-                continue;
-
-            deque* atendimentos = &p->atendimentos;
+            pop_front(&paciente->atendimentos);
             
-            int* especialidade = front(atendimentos);
-            p->sendo_atendido = 1;
-
-            deque* fila = &filas[*especialidade];
-
-            free(especialidade);
-
-            if (p->prioridade == PREFERENCIAL) {
-                push_front(fila, it);
-            } else {
-                push_back(fila, it);
-            }
-        }
-
-        for (int i = 0; i < 9; i++) {
-            for (int j = 0; j < CAPACIDADE[i]; j++) {
-                if (is_empty(&filas[i]))
-                    continue;
-
-                deque_node_t* node = front(&filas[i]);
-                paciente* p = node->elem;
-
-                pop_front(&filas[i]);
-                p->sendo_atendido = 0;
-
-                pop_front(&p->atendimentos);
-                if (is_empty(&p->atendimentos)) {
-                    if (pacientes.head == node) {
-                        pacientes.head = node->next;
-                    } else {
-                        node->prev->next = node->next;
-                    }
-
-                    if (pacientes.tail == node) {
-                        pacientes.tail = node->prev;
-                    } else {
-                        node->next->prev = node->prev;
-                    }
-
-                    free(node);
-                }
-
-                if (is_empty(&p->atendimentos)) {
-                    printf("%02d:%02d %s\n", 8 + tempo / 6, (tempo % 6) * 10, p->nome);
-                    free(p);
-                }
+            if (is_empty(&paciente->atendimentos)) {
+                drop_node(pacientes, node);
+                escrever_saida(tempo, paciente);
+                free(paciente);
             }
         }
     }
-
-    destroy_deque(&pacientes);
-
-    for (int i = 0; i < 9; i++)
-        destroy_deque(&filas[i]);
-
-    return 0;
 }
 
-paciente* ler_paciente() {
-    char nome[MAX_NOME + 1];
-    int lido = scanf("\"%[^\"]\" ", nome);
-    if (lido == 0 || lido == EOF)
-        return NULL;
+//=============================================================================
+// IMPLEMENTAÇÕES (I/O)
+//=============================================================================
 
-    paciente* p = (paciente*) malloc(sizeof(paciente));
-    if (p == NULL) {
-        fprintf(stderr, "Out of memory");
-        exit(-1);
-    }
-
-    strcpy(p->nome, nome);
-
-    char prioridade[13] = { 0 };
-    scanf("%s", prioridade);
-
-    if (strcmp(prioridade, "preferencial") == 0) {
-        p->prioridade = PREFERENCIAL;
-    } else {
-        p->prioridade = NORMAL;
-    }
-
-    p->atendimentos = make_deque();
-
+void ler_entrada(deque* pacientes) {
+    paciente_t* paciente;
     do {
-        int* especialidade = (int*) malloc(sizeof(int));
-        if (especialidade == NULL) {
-            fprintf(stderr, "Out of memory");
-            exit(-1);
+        paciente = ler_paciente();
+
+        if (paciente) {
+            push_back(pacientes, paciente);
         }
+    } while (paciente);
+}
 
-        lido = scanf(" %d", especialidade);
-        (*especialidade)--;
-
-        if (lido != 0 && lido != EOF) {
-            push_back(&p->atendimentos, especialidade);
-        } else {
-            free(especialidade);
-        }
-    } while (lido != 0 && lido != EOF);
-
-    p->sendo_atendido = 0;
-
-    return p;
+void escrever_saida(int tempo, const paciente_t* paciente) {
+    int hora = 8 + tempo / 6;
+    int minuto = (tempo % 6) * 10;
+    printf("%02d:%02d %s\n", hora, minuto, paciente->nome);
 }

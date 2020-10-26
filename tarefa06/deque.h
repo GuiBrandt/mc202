@@ -84,27 +84,6 @@ void push_front(deque* q, deque_elem_t elem);
 deque_elem_t front(const deque* q);
 
 /**
- * @brief Retorna o último elemento da fila.
- * 
- * @note Essa função assume que a fila não está vazia. Seu comportamento é
- *       indefinido caso chamada em uma fila vazia.
- * 
- * @param q a fila.
- * @return o elemento. 
- */
-deque_elem_t back(const deque* q);
-
-/**
- * @brief Remove um elemento do começo da fila.
- * 
- * @note Essa função não libera a memória do elemento armazenado, isso deve ser
- *       feito pelo usuário caso necessário.
- * 
- * @param q a fila.
- */
-void pop_back(deque* q);
-
-/**
  * @brief Remove um elemento do começo da fila.
  * 
  * @note Essa função não libera a memória do elemento armazenado, isso deve ser
@@ -113,5 +92,16 @@ void pop_back(deque* q);
  * @param q a fila.
  */
 void pop_front(deque* q);
+
+/**
+ * @brief Remove e libera um nó particular da fila.
+ * 
+ * @note A função assume que o nó faz parte da fila. Caso não seja, seu
+ *       comportamento é indefinido.
+ * 
+ * @param q o deque.
+ * @param node o nó.
+ */
+void drop_node(deque* q, deque_node_t* node);
 
 #endif // __DEQUE_H__

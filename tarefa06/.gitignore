@@ -1,0 +1,4 @@
+callgrind.out.*
+*.gcda
+*.gcno
+coverage/

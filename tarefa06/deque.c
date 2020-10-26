@@ -1,9 +1,29 @@
+/**
+ * @file deque.c
+ * @author Guilherme G. Brandt (235970)
+ * 
+ * @brief Implementação do ADT de Deque.
+ */
+
 #include "deque.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
+//=============================================================================
+// Funções Auxiliares
+//=============================================================================
+
+/**
+ * @brief Cria um nó da lista,
+ * 
+ * @param elem elemento sendo armazenado.
+ * @param prev ponteiro para o nó anterior.
+ * @param next ponteiro para o próximo nó.
+ * 
+ * @return um ponteiro para o nó alocado.
+ */
 deque_node_t* make_node(deque_elem_t elem, deque_node_t* prev, deque_node_t* next) {
     deque_node_t* node = (deque_node_t*) malloc(sizeof(deque_node_t));
 
@@ -18,6 +38,10 @@ deque_node_t* make_node(deque_elem_t elem, deque_node_t* prev, deque_node_t* nex
 
     return node;
 }
+
+//=============================================================================
+// Contrato
+//=============================================================================
 
 deque make_deque() {
     return (deque) { .head = NULL, .tail = NULL };
@@ -112,4 +136,20 @@ void pop_front(deque* q) {
     }
 
     free(head);
+}
+
+void drop_node(deque* q, deque_node_t* node) {
+    if (q->head == node) {
+        q->head = node->next;
+    } else {
+        node->prev->next = node->next;
+    }
+
+    if (q->tail == node) {
+        q->tail = node->prev;
+    } else {
+        node->next->prev = node->prev;
+    }
+
+    free(node);
 }

@@ -1,14 +1,16 @@
-CFLAGS = -std=c99 -Wall -Werror -Werror=vla -g
-LDFLAGS = -lm
+CC=gcc
+CFLAGS = -std=c99 -Wall -Werror -Werror=vla -g -ftest-coverage -fprofile-arcs -O0
+LDFLAGS = -lm -lgcov
 
 .PHONY: all clean
 
 all: sala_de_espera
 
-sala_de_espera: sala_de_espera.c deque.c
-	gcc $(CFLAGS) sala_de_espera.c deque.c -o sala_de_espera $(LDFLAGS)
+sala_de_espera: sala_de_espera.o deque.o paciente.o
+	$(CC) sala_de_espera.o deque.o paciente.o -o sala_de_espera $(LDFLAGS)
 
 clean:
+	rm -f *.o
 	rm -f sala_de_espera
 
 memcheck: sala_de_espera
