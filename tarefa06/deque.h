@@ -9,21 +9,33 @@
 #define __DEQUE_H__
 
 /**
- * @brief Estrutura opaca para um deque.
- */
-typedef struct _deque deque;
-
-/**
  * @brief Tipo para elementos de um deque.
  */
-typedef void* deque_elem_t;
+typedef int deque_elem_t;
+
+/**
+ * @brief Estrutura de nó do deque. 
+ */
+typedef struct _node {
+    void* elem;
+    struct _node* prev;
+    struct _node* next;
+} deque_node_t;
+
+/**
+ * @brief Estrutura de deque. 
+ */
+typedef struct {
+    deque_node_t* head;
+    deque_node_t* tail;
+} deque;
 
 /**
  * @brief Constrói um deque vazio.
  * 
- * @return ponteiro para um deque
+ * @return um deque.
  */
-deque* make_deque()
+deque make_deque()
     __attribute__((malloc));
 
 /**
@@ -44,7 +56,7 @@ void destroy_deque(deque* q);
  * @param q a fila.
  * @return true se estiver vazia, false caso contrário.
  */
-int is_empty(deque* q);
+int is_empty(const deque* q);
 
 /**
  * @brief Adiciona um elemento no fim da fila.
@@ -71,7 +83,7 @@ void push_front(deque* q, deque_elem_t elem);
  * @param q a fila.
  * @return o elemento.
  */
-deque_elem_t front(deque* q);
+deque_elem_t front(const deque* q);
 
 /**
  * @brief Retorna o último elemento da fila.
@@ -82,7 +94,7 @@ deque_elem_t front(deque* q);
  * @param q a fila.
  * @return o elemento. 
  */
-deque_elem_t back(deque* q);
+deque_elem_t back(const deque* q);
 
 /**
  * @brief Remove um elemento do começo da fila.

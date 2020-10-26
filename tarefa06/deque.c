@@ -29,8 +29,8 @@ node_t* make_node(void* elem, node_t* prev, node_t* next) {
     return node;
 }
 
-deque* make_deque() {
-    return (deque*) calloc(1, sizeof(deque));
+deque make_deque() {
+    return (deque) { .head = NULL, .tail = NULL };
 }
 
 void destroy_deque(deque* q) {
@@ -47,7 +47,7 @@ void destroy_deque(deque* q) {
     free(q);
 }
 
-int is_empty(deque* q) {
+int is_empty(const deque* q) {
     assert(q != NULL);
 
     return q->head != NULL;
@@ -73,14 +73,14 @@ void push_front(deque* q, deque_elem_t elem) {
     q->head = node;
 }
 
-deque_elem_t front(deque* q) {
+deque_elem_t front(const deque* q) {
     assert(q != NULL);
     assert(q->head != NULL);
 
     return q->head->elem;
 }
 
-deque_elem_t back(deque* q) {
+deque_elem_t back(const deque* q) {
     assert(q != NULL);
     assert(q->tail != NULL);
 
