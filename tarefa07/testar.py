@@ -207,7 +207,7 @@ class BaseTask:
 
 class Task(BaseTask):
     def teste_1_mensageiro(self):
-        binary = self.compile(binary="mensageiro")
+        binary = self.make(binary="mensageiro")
         self.test_cases(binary, self.case_range("mensageiro{}.in", 1, 10))
 
 if __name__ == "__main__":

@@ -1,6 +1,10 @@
 {
 	"folders": [
 		{
+			"name": "O mensageiro",
+			"path": "tarefa07"
+		},
+		{
 			"name": "Sala de espera do Cecom",
 			"path": "tarefa06"
 		},
