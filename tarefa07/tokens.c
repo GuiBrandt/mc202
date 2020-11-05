@@ -3,6 +3,8 @@
  * @author Guilherme G. Brandt (235970)
  * 
  * @brief Definições do ADT para os tokens do mensageiro.
+ * 
+ * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa07.html
  */
 
 #include "tokens.h"
