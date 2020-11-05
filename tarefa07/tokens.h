@@ -21,3 +21,4 @@ typedef struct {
 void add_token(saco* s, token t);
 void troca_triade(saco* s, int soma);
 void print_mensagem(saco* s);
+void destroy(saco* s);

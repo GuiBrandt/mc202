@@ -29,6 +29,8 @@ int main() {
 
         print_mensagem(&s);
         printf("\n");
+
+        destroy(&s);
     }
 
     return 0;

@@ -100,6 +100,7 @@ node* pop_min(node* raiz) {
 
 node* substitui(node* raiz) {
     if (!(raiz->dir || raiz->esq)) {
+        free(raiz);
         return NULL;
     }
 
@@ -116,6 +117,8 @@ node* substitui(node* raiz) {
 
     if (novo != raiz->esq)
         novo->esq = raiz->esq;
+
+    free(raiz);
 
     return novo;
 }
@@ -175,14 +178,14 @@ void troca_triade(saco* s, int soma) {
     node *a, *b, *c;
     busca_triade_rec(s, s->internal, soma, &a, &b, &c);
 
-    s->internal = remove_valor(s->internal, a->val.num);
-    s->internal = remove_valor(s->internal, b->val.num);
-    s->internal = remove_valor(s->internal, c->val.num);
-
     token t = { soma, TOKEN_COMPOSTO, {{0}} };
     add_token(&t.componentes, b->val);
     add_token(&t.componentes, a->val);
     add_token(&t.componentes, c->val);
+
+    s->internal = remove_valor(s->internal, a->val.num);
+    s->internal = remove_valor(s->internal, b->val.num);
+    s->internal = remove_valor(s->internal, c->val.num);
 
     add_token(s, t);
 }
@@ -202,4 +205,21 @@ void print_mensagem_rec(node* raiz) {
 
 void print_mensagem(saco* s) {
     print_mensagem_rec(s->internal);
+}
+
+void destroy_rec(node* raiz) {
+    if (raiz == NULL)
+        return;
+
+    destroy_rec(raiz->esq);
+    destroy_rec(raiz->dir);
+
+    if (raiz->val.tipo == TOKEN_COMPOSTO)
+        destroy(&raiz->val.componentes);
+
+    free(raiz);
+}
+
+void destroy(saco* s) {
+    destroy_rec(s->internal);
 }
