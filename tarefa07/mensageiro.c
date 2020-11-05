@@ -10,16 +10,16 @@ int main() {
         if (lido == 0 || lido == -1)
             break;
 
-        saco s = { 0 };
+        saco s = make_saco();
 
         for (int i = 0; i < m; i++) {
-            token t;
-            t.tipo = TOKEN_SIMPLES;
+            int num;
+            scanf("%d", &num);
 
-            scanf("%d", &t.num);
-            scanf(" \"%6[^\"]\"", t.msg);
+            char msg[TOKEN_MSG_MAXLEN + 1];
+            scanf(" \"%6[^\"]\"", msg);
 
-            add_token(&s, t);
+            add_token(&s, num, msg);
         }
 
         for (int i = 0; i < n; i++) {

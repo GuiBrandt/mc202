@@ -1,24 +1,72 @@
+/**
+ * @file tokens.h
+ * @author Guilherme G. Brandt (235970)
+ * 
+ * @brief Definições do ADT para os tokens do mensageiro.
+ */
+
+/**
+ * @brief Estrutura opaca para a representação interna do saco de cartões
+ *        numerados do mensageiro. 
+ */
 struct saco_internal;
 
+/**
+ * @brief Estrutura para o saco de cartões numerados. 
+ */
 typedef struct {
     struct saco_internal* internal;
 } saco;
 
-typedef enum {
-    TOKEN_SIMPLES,
-    TOKEN_COMPOSTO
-} tipo_token;
+/**
+ * @brief Tamanho máximo para a mensagem de um único cartão antes de quaisquer
+ *        trocas.
+ */
+#define TOKEN_MSG_MAXLEN 5
 
-typedef struct {
-    int num;
-    tipo_token tipo;
-    union {
-        char msg[6];
-        saco componentes;
-    };
-} token;
+/**
+ * @brief Constrói um saco de cartões vazio.
+ * 
+ * @return um saco de cartões vazio.
+ */
+saco make_saco();
 
-void add_token(saco* s, token t);
+/**
+ * @brief Adiciona um cartão ao conjunto do mensageiro.
+ * 
+ * Essa função pode terminar o programa com erro em caso de falta de memória.
+ * 
+ * @param s ponteiro para o saco de cartões.
+ * @param num código numérico do cartão.
+ * @param msg texto no verso do cartão.
+ */
+void add_token(saco* s, int num, const char msg[TOKEN_MSG_MAXLEN + 1]);
+
+/**
+ * @brief Executa a operação de troca de tríade de cartões.
+ * 
+ * Esta função pode terminar o programa com erro em caso de falta de memória.
+ * 
+ * Esta função assume que o valor de soma passado é válido, i.e., existem três
+ * cartões cuja soma é igual ao valor dado. Caso contrário, seu comportamento é
+ * indeterminado. 
+ * 
+ * @param s ponteiro para o saco de cartões.
+ * @param soma soma desejada para os cartões.
+ */
 void troca_triade(saco* s, int soma);
-void print_mensagem(saco* s);
+
+/**
+ * @brief Escreve a mensagem obtida ao ler os cartões do saco em ordem
+ *        numérica. 
+ * 
+ * @param s ponteiro para o saco de cartões.
+ */
+void print_mensagem(const saco* s);
+
+/**
+ * @brief Libera todos os recursos alocados para um conjunto de cartões. 
+ * 
+ * @param s ponteiro para o saco de cartões.
+ */
 void destroy(saco* s);
