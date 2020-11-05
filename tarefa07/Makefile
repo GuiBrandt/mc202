@@ -5,8 +5,8 @@ LDFLAGS = -lm
 
 all: mensageiro
 
-mensageiro: mensageiro.c
-	gcc $(CFLAGS) *.c -o mensageiro $(LDFLAGS)
+mensageiro: mensageiro.o tokens.o
+	gcc $(CFLAGS) $^ -o mensageiro $(LDFLAGS)
 
 clean:
 	rm -f mensageiro
