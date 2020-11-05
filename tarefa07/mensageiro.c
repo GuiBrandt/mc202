@@ -6,6 +6,7 @@ int main() {
     for (;;) {
         int m, n,
             lido = scanf("%d %d", &m, &n);
+
         if (lido == 0 || lido == -1)
             break;
 
