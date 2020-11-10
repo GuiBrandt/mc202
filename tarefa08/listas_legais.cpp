@@ -7,6 +7,7 @@ int main() {
     cin >> n >> k;
 
     unordered_map<size_t, size_t> t;
+    t.reserve(n);
     for (int i = 0; i < n; i++) {
         size_t m;
         cin >> m;
