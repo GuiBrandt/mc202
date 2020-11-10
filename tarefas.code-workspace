@@ -1,6 +1,10 @@
 {
 	"folders": [
 		{
+			"name": "Listas legais",
+			"path": "tarefa08"
+		},
+		{
 			"name": "O mensageiro",
 			"path": "tarefa07"
 		},
