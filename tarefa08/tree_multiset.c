@@ -20,7 +20,7 @@
 /**
  * @brief Estrutura de nó da árvore multi-splay. 
  */
-typedef struct tree_multiset {
+typedef struct tree_multiset_node {
     // Chave do nó
     element_t key;
 
@@ -28,13 +28,13 @@ typedef struct tree_multiset {
     size_t count;
 
     // Filho esquerdo
-    struct tree_multiset* left;
+    struct tree_multiset_node* left;
 
     // Filho direito
-    struct tree_multiset* right;
+    struct tree_multiset_node* right;
 
     // Nó pai (NULL para a raíz)
-    struct tree_multiset* parent;
+    struct tree_multiset_node* parent;
 
     // Profundidade do nó na árvore de referência.
     // A árvore de referência é uma árvore binária de busca balanceada
@@ -50,11 +50,15 @@ typedef struct tree_multiset {
     bool is_dashed;
 } node;
 
-node* minimum(node* root);
-node* maximum(node* root);
+struct tree_multiset {
+    node* root;
+};
 
-node* predecessor(node* root);
-node* successor(node* root);
+node* minimum_with_depth(node* root, int max_depth);
+node* maximum_with_depth(node* root, int max_depth);
+
+node* predecessor_with_depth(node* root, int max_depth);
+node* successor_with_depth(node* root, int max_depth);
 
 node* rotate_left(node* root);
 node* rotate_right(node* root);
@@ -70,10 +74,16 @@ void switch_preferred(node* root);
  * 
  * @return o nó mínimo na árvore.
  */
-node* minimum(node* root) {
+node* minimum_with_depth(node* root, int max_depth) {
     node* current = root;
+    node* best = NULL;
+
     while (current->left) {
         current = current->left;
+
+        if (current->reference_depth < max_depth) {
+            best = current;
+        }
     }
 
     return current;
@@ -86,10 +96,16 @@ node* minimum(node* root) {
  * 
  * @return o nó máximo na árvore.
  */
-node* maximum(node* root) {
+node* maximum_with_depth(node* root, int max_depth) {
     node* current = root;
+    node* best = NULL;
+
     while (current->right) {
         current = current->right;
+
+        if (current->reference_depth < max_depth) {
+            best = current;
+        }
     }
 
     return current;
@@ -102,12 +118,12 @@ node* maximum(node* root) {
  * 
  * @return o nó do predecessor.
  */
-node* predecessor(node* root) {
+node* predecessor_with_depth(node* root, int max_depth) {
     if (root->left == NULL) {
         return NULL;
     }
 
-    return maximum(root->left);
+    return maximum_with_depth(root->left, max_depth);
 }
 
 /**
@@ -117,12 +133,12 @@ node* predecessor(node* root) {
  * 
  * @return o nó do sucessor.
  */
-node* successor(node* root) {
+node* successor_with_depth(node* root, int max_depth) {
     if (root->right == NULL) {
         return NULL;
     }
 
-    return minimum(root->right);
+    return minimum_with_depth(root->right, max_depth);
 }
 
 /**
@@ -138,7 +154,8 @@ node* successor(node* root) {
  *        / \        / \
  *       y   z      x   y
  * 
- * Onde P é o nó sendo rotacionado.
+ * Onde P é o nó sendo rotacionado. Os nós em maiúscula são obrigatórios (i.e.
+ * não podem ser NULL).
  * 
  * @param root o nó sendo rotacionado.
  */
@@ -150,21 +167,21 @@ node* rotate_left(node* p) {
     node* y = q->left;
     
     q->left = p;
-    p->parent = q;
-
     p->right = y;
-    if (y) {
-        y->parent = p;
-    }
 
     if (o) {
-        if (p == o->right) {
+        if (o->right == p) {
             o->right = q;
         } else {
             o->left = q;
         }
     }
 
+    if (y) {
+        y->parent = p;
+    }
+
+    p->parent = q;
     q->parent = o;
 
     return q;
@@ -183,7 +200,8 @@ node* rotate_left(node* p) {
  *    / \                / \
  *   x   y              y   z
  * 
- * Onde P é o nó sendo rotacionado.
+ * Onde P é o nó sendo rotacionado. Os nós em maiúscula são obrigatórios (i.e.
+ * não podem ser NULL).
  * 
  * @param root o nó sendo rotacionado.
  */
@@ -195,24 +213,106 @@ node* rotate_right(node* p) {
     node* y = q->right;
 
     q->right = p;
-    p->parent = q;
-
     p->left = y;
-    if (y) {
-        y->parent = p;
-    }
 
     if (o) {
-        if (p == o->right) {
+        if (o->right == p) {
             o->right = q;
         } else {
             o->left = q;
         }
     }
 
+    p->parent = q;
     q->parent = o;
 
+    if (y) {
+        y->parent = p;
+    }
+
     return q;
+}
+
+/**
+ * @brief Rotaciona um nó até que tenha um nó pai dado.
+ * 
+ * Se root != NULL, esta função assume que o nó dado está em uma das subárvores
+ * do nó pai desejado. Caso contrário, a função tem comportamento indeterminado.
+ * 
+ * Se root == NULL, esta função leva o nó dado até a raíz da árvore.
+ * 
+ * @param subject nó sendo rotacionado.
+ * @param root nó-pai desejado ao fim do splay.
+ */
+void splay(node* subject, node* root) {
+    while (subject->parent != root) {
+        assert(subject->parent != NULL);
+
+        if (subject->parent->right == subject) {
+            rotate_left(subject->parent);
+        } else {
+            rotate_right(subject->parent);
+        }
+    }
+}
+
+/**
+ * @brief Troca o filho preferido de um nó.
+ * 
+ * @param y nó para o qual trocar o filho preferido.
+ */
+void switch_preferred(node* y) {
+    node* z = predecessor_with_depth(y, y->reference_depth);
+    node* x = successor_with_depth(y, y->reference_depth);
+
+    splay(y, NULL);
+
+    if (z) {
+        splay(z, y);
+
+        if (z->right) {
+            z->right->is_dashed = !z->right->is_dashed;
+        }
+    }
+
+    if (x) {
+        splay(x, y);
+
+        if (x->left) {
+            x->left->is_dashed = !x->left->is_dashed;
+        }
+    }
+}
+
+size_t multiset_count(tree_multiset* multiset, element_t elem) {
+    node* current = multiset->root;
+
+    while (current && current->key != elem) {
+        if (elem < current->key) {
+            current = current->left;
+        } else {
+            current = current->right;
+        }
+    }
+    
+    if (current == NULL) {
+        return 0;
+    }
+
+    node* backtrack = current;
+    while (backtrack && backtrack->parent != NULL) {
+        if (backtrack->is_dashed) {
+            switch_preferred(backtrack->parent);
+        }
+
+        backtrack = backtrack->parent;
+    }
+
+    switch_preferred(current);
+
+    multiset->root = current;
+
+    return current->count;
 }
 
 #include <stdio.h>
@@ -241,33 +341,44 @@ int main() {
 
     c.left = &b;
     c.right = &d;
+    c.is_dashed = true;
 
     b.left = &a;
     b.parent = &c;
+    b.is_dashed = false;
 
     a.parent = &b;
+    a.is_dashed = true;
 
     d.right = &e;
     d.parent = &c;
 
     e.parent = &d;
+    e.is_dashed = true;
 
-    printtree(&c);
+    tree_multiset s = { &c };
+
+    printtree(s.root);
     printf("\n");
 
-    rotate_left(&d);
-
-    printtree(&c);
+    multiset_count(&s, 1);
+    printtree(s.root);
     printf("\n");
 
-    rotate_left(&c);
-
-    printtree(&e);
+    multiset_count(&s, 2);
+    printtree(s.root);
     printf("\n");
 
-    rotate_right(&e);
+    multiset_count(&s, 3);
+    printtree(s.root);
+    printf("\n");
 
-    printtree(&c);
+    multiset_count(&s, 4);
+    printtree(s.root);
+    printf("\n");
+
+    multiset_count(&s, 5);
+    printtree(s.root);
     printf("\n");
 
     return 0;
