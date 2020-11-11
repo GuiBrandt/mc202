@@ -3,7 +3,7 @@
  * @author Guilherme G. Brandt (235970)
  * 
  * @brief Definições do ADT de multiset usado na tarefa.
- * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa08.html 
+ * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa08.html
  * 
  * O ADT fornece funções para inserção e contagem de elementos com um certo
  * valor no conjunto. 
