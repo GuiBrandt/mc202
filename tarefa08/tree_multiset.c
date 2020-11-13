@@ -51,80 +51,6 @@ typedef struct tree_multiset_node {
 } node;
 
 /**
- * @brief Retorna o nó mínimo (mais à esquerda) dado um nó raíz.
- * 
- * @param root o nó raíz.
- * 
- * @return o nó mínimo na árvore.
- */
-node* minimum_with_depth(node* root, int max_depth) {
-    node* current = root;
-    node* best = NULL;
-
-    while (current->left) {
-        current = current->left;
-
-        if (current->reference_depth < max_depth) {
-            best = current;
-        }
-    }
-
-    return current;
-}
-
-/**
- * @brief Retorna o nó máximo (mais à direita) dado um nó raíz.
- * 
- * @param root o nó raíz.
- * 
- * @return o nó máximo na árvore.
- */
-node* maximum_with_depth(node* root, int max_depth) {
-    node* current = root;
-    node* best = NULL;
-
-    while (current->right) {
-        current = current->right;
-
-        if (current->reference_depth < max_depth) {
-            best = current;
-        }
-    }
-
-    return current;
-}
-
-/**
- * @brief Retorna o nó do predecessor de um nó dado.
- * 
- * @param root o nó dado.
- * 
- * @return o nó do predecessor.
- */
-node* predecessor_with_depth(node* root, int max_depth) {
-    if (root->left == NULL) {
-        return NULL;
-    }
-
-    return maximum_with_depth(root->left, max_depth);
-}
-
-/**
- * @brief Retorna o nó do sucessor de um nó dado.
- * 
- * @param root o nó dado.
- * 
- * @return o nó do sucessor.
- */
-node* successor_with_depth(node* root, int max_depth) {
-    if (root->right == NULL) {
-        return NULL;
-    }
-
-    return minimum_with_depth(root->right, max_depth);
-}
-
-/**
  * @brief Faz uma rotação para a esquerda em um nó.
  * 
  * A rotação segue o diagrama abaixo:
@@ -284,31 +210,181 @@ void splay(node* subject, node* root) {
 }
 
 /**
+ * @brief Retorna o nó do predecessor (z) de um nó dado (y) seguindo o critério
+ *        descrito na seção 3 de [WDS06].
+ * 
+ * @param y o nó dado.
+ * 
+ * @return o nó do predecessor.
+ */
+node* ref_predecessor(node* y) {
+    node* current = y;
+    int depth = y->reference_depth;
+
+    // Encontra o primeiro nó igual a y ou acima na mesma árvore splay onde
+    // existe algum nó com profundidade menor que y na árvore referência.
+    while (current->min_depth >= depth) {
+        node* parent = current->parent;
+
+        // Se o pai é direito ou se o nó atual é raíz da árvore splay,
+        // não existe nó com profundidade < y.reference_depth na árvore.
+        if (!parent || parent->left == current || current->is_dashed) {
+            return NULL;
+        }
+
+        current = current->parent;
+    }
+
+    if (current == y) {
+        current = current->left;
+    }
+
+    if (current == NULL)
+        return NULL;
+
+    // Buscamos o nó de maior valor possível que ainda tenha profundidade
+    // menor que y.
+    // Para isso, basta um percurso para a direita enquanto a profundidade
+    // mínima da árvore splay com raíz no nó for menor que a profundidade
+    // desejada.
+    // Isso é verdadeiro por construção, uma vez que garantimos que o valor de
+    // min_depth dos nós filhos deve ser sempre maior ou igual ao valor do nó
+    // pai (por definição de mínimo), e os valores na subárvore esquerda devem
+    // ser sempre menores que o valor do pai (propriedade da ABB).
+    while (
+        current->right
+        && !current->right->is_dashed
+        && current->right->min_depth < depth
+    ) {
+        current = current->right;
+    }
+
+    return current;
+}
+
+/**
+ * @brief Retorna o nó do sucessor (x) de um nó dado (y) seguindo o critério
+ *        descrito na seção 3 de [WDS06].
+ * 
+ * Simétrico a ref_predecessor.
+ * 
+ * @param y o nó dado.
+ * 
+ * @return o nó do sucessor.
+ */
+node* ref_successor(node* y) {
+    node* current = y;
+    int depth = y->reference_depth;
+
+    while (current->min_depth >= depth) {
+        node* parent = current->parent;
+
+        if (!parent || parent->right == current || current->is_dashed) {
+            return NULL;
+        }
+
+        current = current->parent;
+    }
+
+    if (current == y) {
+        current = current->right;
+    }
+
+    if (current == NULL) {
+        return NULL;
+    }
+
+    while (
+        current->left
+        && !current->left->is_dashed
+        && current->left->min_depth < depth
+    ) {
+        current = current->left;
+    }
+
+    return current;
+}
+
+/**
  * @brief Troca o filho preferido de um nó.
  * 
  * @param y nó para o qual trocar o filho preferido.
  */
 void switch_preferred(node* y) {
-    node* z = predecessor_with_depth(y, y->reference_depth);
-    node* x = successor_with_depth(y, y->reference_depth);
+    if (y->left) {
+        y->left->is_dashed = false;
+    }
+
+    if (y->right) {
+        y->right->is_dashed = false;
+    }
+
+    node* z = ref_predecessor(y);
+    node* x = ref_successor(y);
 
     splay(y, NULL);
 
     if (z) {
         splay(z, y);
-
-        if (z->right) {
-            z->right->is_dashed = !z->right->is_dashed;
-        }
     }
 
     if (x) {
         splay(x, y);
+    }
+
+    if (x != NULL && z != NULL) {
+        if (z->right) {
+            z->right->is_dashed = !z->right->is_dashed;
+        }
 
         if (x->left) {
             x->left->is_dashed = !x->left->is_dashed;
         }
     }
+}
+
+node* splay_predecessor(element_t key, node* splay_root) {
+    node* current = splay_root;
+
+    while (
+        current->key >= key
+        && current->left
+        && !current->left->is_dashed
+    ) {
+        current = current->left;
+    }
+
+    if (current->key >= key) {
+        return NULL;
+    }
+
+    while (current->right && !current->right->is_dashed) {
+        current = current->right;
+    }
+
+    return current;
+}
+
+node* splay_successor(element_t key, node* splay_root) {
+    node* current = splay_root;
+
+    while (
+        current->key <= key
+        && current->right
+        && !current->right->is_dashed
+    ) {
+        current = current->right;
+    }
+
+    if (current->key <= key) {
+        return NULL;
+    }
+
+    while (current->left && !current->left->is_dashed) {
+        current = current->left;
+    }
+
+    return current;    
 }
 
 struct tree_multiset {
@@ -333,7 +409,18 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
     node* backtrack = current;
     while (backtrack && backtrack->parent != NULL) {
         if (backtrack->is_dashed) {
-            switch_preferred(backtrack->parent);
+            node* v = splay_predecessor(elem, backtrack->parent);
+            node* w = splay_successor(elem, backtrack->parent);
+            
+            if (
+                v != NULL
+                && (w == NULL || v->reference_depth < w->reference_depth)
+            ) {
+                switch_preferred(v);
+                
+            } else if (w) {
+                switch_preferred(w);
+            }
         }
 
         backtrack = backtrack->parent;
@@ -363,6 +450,9 @@ void printtree(node* root) {
     printf(")");
 }
 
+#include <time.h>
+#include <stdlib.h>
+
 int main() {
     node a = { 1, 1, 0 };
     node b = { 2, 1, 0 };
@@ -373,49 +463,43 @@ int main() {
     c.left = &b;
     c.right = &d;
     c.reference_depth = 1;
+    c.min_depth = 1;
     c.is_dashed = true;
 
     b.left = &a;
     b.parent = &c;
     b.reference_depth = 2;
+    b.min_depth = 2;
     b.is_dashed = false;
 
     a.parent = &b;
+    a.min_depth = 3;
     a.reference_depth = 3;
     a.is_dashed = true;
 
     d.right = &e;
     d.parent = &c;
+    d.min_depth = 2;
     d.reference_depth = 2;
+    d.is_dashed = true;
 
     e.parent = &d;
     e.is_dashed = true;
-    c.reference_depth = 3;
+    e.min_depth = 3;
+    e.reference_depth = 3;
 
     tree_multiset s = { &c };
 
     printtree(s.root);
     printf("\n");
 
-    multiset_count(&s, 3);
-    printtree(s.root);
-    printf("\n");
+    srand(time(NULL));
 
-    multiset_count(&s, 2);
-    printtree(s.root);
-    printf("\n");
-
-    multiset_count(&s, 4);
-    printtree(s.root);
-    printf("\n");
-
-    multiset_count(&s, 1);
-    printtree(s.root);
-    printf("\n");
-
-    multiset_count(&s, 5);
-    printtree(s.root);
-    printf("\n");
+    for (int i = 0; i < 10; i++) {
+        multiset_count(&s, rand() % 5 + 1);
+        printtree(s.root);
+        printf("\n");
+    }
 
     return 0;
 }
