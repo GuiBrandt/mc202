@@ -50,23 +50,6 @@ typedef struct tree_multiset_node {
     bool is_dashed;
 } node;
 
-struct tree_multiset {
-    node* root;
-};
-
-node* minimum_with_depth(node* root, int max_depth);
-node* maximum_with_depth(node* root, int max_depth);
-
-node* predecessor_with_depth(node* root, int max_depth);
-node* successor_with_depth(node* root, int max_depth);
-
-node* rotate_left(node* root);
-node* rotate_right(node* root);
-
-void splay(node* subject, node* root);
-
-void switch_preferred(node* root);
-
 /**
  * @brief Retorna o nó mínimo (mais à esquerda) dado um nó raíz.
  * 
@@ -159,7 +142,7 @@ node* successor_with_depth(node* root, int max_depth) {
  * 
  * @param root o nó sendo rotacionado.
  */
-node* rotate_left(node* p) {
+inline static node* rotate_left(node* p) {
     assert(p->right != NULL);
 
     node* o = p->parent;
@@ -205,7 +188,7 @@ node* rotate_left(node* p) {
  * 
  * @param root o nó sendo rotacionado.
  */
-node* rotate_right(node* p) {
+inline static node* rotate_right(node* p) {
     assert(p->left != NULL);
 
     node* o = p->parent;
@@ -234,7 +217,7 @@ node* rotate_right(node* p) {
 }
 
 /**
- * @brief Rotaciona um nó até que tenha um nó pai dado.
+ * @brief Faz splay de um nó até que tenha um nó pai dado.
  * 
  * Se root != NULL, esta função assume que o nó dado está em uma das subárvores
  * do nó pai desejado. Caso contrário, a função tem comportamento indeterminado.
@@ -246,12 +229,56 @@ node* rotate_right(node* p) {
  */
 void splay(node* subject, node* root) {
     while (subject->parent != root) {
-        assert(subject->parent != NULL);
+        node* parent = subject->parent;
+        node* grandparent = parent->parent;
 
-        if (subject->parent->right == subject) {
-            rotate_left(subject->parent);
+        assert(parent != NULL);
+
+        if (parent->right == subject) {
+            // Zag
+            if (grandparent == root) {
+                rotate_left(parent);
+                return;
+            }
+
+            assert(grandparent != NULL);
+
+            // Zag-Zag
+            if (grandparent->right == parent) {
+                rotate_left(grandparent);
+                rotate_left(parent);
+
+            // Zag-Zig
+            } else {
+                assert(grandparent->left == parent);
+
+                rotate_left(parent);
+                rotate_right(grandparent);
+            }
+
         } else {
-            rotate_right(subject->parent);
+            assert(parent->left == subject);
+
+            // Zig
+            if (grandparent == root) {
+                rotate_right(parent);
+                return;
+            }
+
+            assert(grandparent != NULL);
+
+            // Zig-Zag
+            if (grandparent->right == parent) {
+                rotate_right(parent);
+                rotate_left(grandparent);
+
+            // Zig-Zig
+            } else {
+                assert(grandparent->left == parent);
+
+                rotate_right(grandparent);
+                rotate_right(parent);
+            }
         }
     }
 }
@@ -283,6 +310,10 @@ void switch_preferred(node* y) {
         }
     }
 }
+
+struct tree_multiset {
+    node* root;
+};
 
 size_t multiset_count(tree_multiset* multiset, element_t elem) {
     node* current = multiset->root;
@@ -341,31 +372,28 @@ int main() {
 
     c.left = &b;
     c.right = &d;
+    c.reference_depth = 1;
     c.is_dashed = true;
 
     b.left = &a;
     b.parent = &c;
+    b.reference_depth = 2;
     b.is_dashed = false;
 
     a.parent = &b;
+    a.reference_depth = 3;
     a.is_dashed = true;
 
     d.right = &e;
     d.parent = &c;
+    d.reference_depth = 2;
 
     e.parent = &d;
     e.is_dashed = true;
+    c.reference_depth = 3;
 
     tree_multiset s = { &c };
 
-    printtree(s.root);
-    printf("\n");
-
-    multiset_count(&s, 1);
-    printtree(s.root);
-    printf("\n");
-
-    multiset_count(&s, 2);
     printtree(s.root);
     printf("\n");
 
@@ -373,7 +401,15 @@ int main() {
     printtree(s.root);
     printf("\n");
 
+    multiset_count(&s, 2);
+    printtree(s.root);
+    printf("\n");
+
     multiset_count(&s, 4);
+    printtree(s.root);
+    printf("\n");
+
+    multiset_count(&s, 1);
     printtree(s.root);
     printf("\n");
 
