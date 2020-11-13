@@ -353,10 +353,10 @@ void switch_preferred(node* y) {
 
         assert(z->right->is_dashed != x->left->is_dashed);
 
-        z->right->is_dashed ^= 1;
+        z->right->is_dashed ^= true;
         maintain_min_depth(z);
 
-        x->left->is_dashed ^= 1;
+        x->left->is_dashed ^= true;
         maintain_min_depth(x);
     }
 }
@@ -435,7 +435,6 @@ struct tree_multiset {
 // Em particular, se a sequência de acessos for sequencial, o tempo gasto ao
 // todo é O(n).
 size_t multiset_count(tree_multiset* multiset, element_t elem) {
-
     // Busca em ABB convencional
     node* current = multiset->root;
     while (current && current->key != elem) {
@@ -558,7 +557,7 @@ int main() {
     e.parent = NULL;
     e.left = &b;
     e.right = &h;
-    e.is_dashed = true;
+    e.is_dashed = false;
     e.min_depth = 1;
     e.reference_depth = 1;
     
