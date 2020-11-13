@@ -343,6 +343,16 @@ void switch_preferred(node* y) {
     }
 }
 
+/**
+ * @brief Retorna o nó do predecessor de um valor dado em uma árvore splay
+ *        dada.
+ * 
+ * @param key chave do valor buscado.
+ * @param splay_root raíz da árvore splay.
+ * 
+ * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
+ *         seja mínimo.
+ */
 node* splay_predecessor(element_t key, node* splay_root) {
     node* current = splay_root;
 
@@ -365,6 +375,15 @@ node* splay_predecessor(element_t key, node* splay_root) {
     return current;
 }
 
+/**
+ * @brief Retorna o nó do sucessor de um valor dado em uma árvore splay dada.
+ * 
+ * @param key chave do valor buscado.
+ * @param splay_root raíz da árvore splay.
+ * 
+ * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
+ *         seja mínimo.
+ */
 node* splay_successor(element_t key, node* splay_root) {
     node* current = splay_root;
 
@@ -391,9 +410,16 @@ struct tree_multiset {
     node* root;
 };
 
+// Complexidade: O(log^2 n) pior caso       [WDS06, teorema 4.1]
+//               O(log log n)-competitiva   [WDS06, teorema 4.2]
+//               O(log n) amortizado        [WDS06, teorema 4.3]
+//
+// Em particular, se a sequência de acessos for sequencial, o tempo gasto ao
+// todo é O(n).
 size_t multiset_count(tree_multiset* multiset, element_t elem) {
-    node* current = multiset->root;
 
+    // Busca em ABB convencional
+    node* current = multiset->root;
     while (current && current->key != elem) {
         if (elem < current->key) {
             current = current->left;
@@ -406,6 +432,8 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
         return 0;
     }
 
+    // Procedimento de correção de caminho preferido (descrito em [WDS06],
+    // seção 3).
     node* backtrack = current;
     while (backtrack && backtrack->parent != NULL) {
         if (backtrack->is_dashed) {
@@ -427,7 +455,6 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
     }
 
     switch_preferred(current);
-
     multiset->root = current;
 
     return current->count;
@@ -495,7 +522,7 @@ int main() {
 
     srand(time(NULL));
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10000; i++) {
         multiset_count(&s, rand() % 5 + 1);
         printtree(s.root);
         printf("\n");
