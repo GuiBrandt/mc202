@@ -235,24 +235,50 @@ void splay(node* subject, node* root) {
         assert(parent != NULL);
 
         if (parent->right == subject) {
-            // Lida com o caso zag-zag, onde o avô deve ser rotacionado antes
-            // do pai
-            if (grandparent != root && grandparent->right == parent) {
-                rotate_left(grandparent);
+            // Zag
+            if (grandparent == root) {
+                rotate_left(parent);
+                return;
             }
 
-            rotate_left(parent);
+            assert(grandparent != NULL);
+
+            // Zag-Zag
+            if (grandparent->right == parent) {
+                rotate_left(grandparent);
+                rotate_left(parent);
+
+            // Zag-Zig
+            } else {
+                assert(grandparent->left == parent);
+
+                rotate_left(parent);
+                rotate_right(grandparent);
+            }
 
         } else {
             assert(parent->left == subject);
 
-            // Lida com o caso zig-zig, onde o avô deve ser rotacionado antes
-            // do pai
-            if (grandparent != root && grandparent->left == parent) {
-                rotate_right(grandparent);
+            // Zig
+            if (grandparent == root) {
+                rotate_right(parent);
+                return;
             }
-            
-            rotate_right(parent);
+
+            assert(grandparent != NULL);
+
+            // Zig-Zag
+            if (grandparent->right == parent) {
+                rotate_right(parent);
+                rotate_left(grandparent);
+
+            // Zig-Zig
+            } else {
+                assert(grandparent->left == parent);
+
+                rotate_right(grandparent);
+                rotate_right(parent);
+            }
         }
     }
 }
