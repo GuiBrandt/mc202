@@ -342,37 +342,22 @@ node* ref_successor(node* y) {
  * @param y nó para o qual trocar o filho preferido.
  */
 void switch_preferred(node* y) {
-    if (y->left) {
-        y->left->is_dashed = false;
-    }
-
-    if (y->right) {
-        y->right->is_dashed = false;
-    }
-
     node* z = ref_predecessor(y);
     node* x = ref_successor(y);
 
     splay(y, NULL);
 
-    if (z) {
+    if (x != NULL && z != NULL && z->right != NULL && x->left != NULL) {
         splay(z, y);
-    }
-
-    if (x) {
         splay(x, y);
-    }
 
-    if (x != NULL && z != NULL) {
-        if (z->right) {
-            z->right->is_dashed = !z->right->is_dashed;
-            maintain_min_depth(z);
-        }
+        assert(z->right->is_dashed != x->left->is_dashed);
 
-        if (x->left) {
-            x->left->is_dashed = !x->left->is_dashed;
-            maintain_min_depth(x);
-        }
+        z->right->is_dashed ^= 1;
+        maintain_min_depth(z);
+
+        x->left->is_dashed ^= 1;
+        maintain_min_depth(x);
     }
 }
 
@@ -510,6 +495,28 @@ void printtree(node* root) {
     printf(")");
 }
 
+void graphviz(node* root, int id) {
+    printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64"\"];\n", id, root->key, root->key);
+
+    if (root->left) {
+        graphviz(root->left, id);
+        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->left->key);
+        if (root->left->is_dashed) {
+            printf(" [style=dashed];");
+        }
+        printf("\n");
+    }
+
+    if (root->right) {
+        graphviz(root->right, id);
+        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->right->key);
+        if (root->right->is_dashed) {
+            printf(" [style=dashed];");
+        }
+        printf("\n");
+    }
+}
+
 #include <time.h>
 #include <stdlib.h>
 
@@ -533,7 +540,7 @@ int main() {
     b.parent = &e;
     b.left = &a;
     b.right = &c;
-    b.is_dashed = true;
+    b.is_dashed = false;
     b.min_depth = 2;
     b.reference_depth = 2;
     
@@ -544,14 +551,14 @@ int main() {
     c.reference_depth = 3;
 
     d.parent = &c;
-    d.is_dashed = true;
+    d.is_dashed = false;
     d.min_depth = 4;
     d.reference_depth = 4;
 
     e.parent = NULL;
     e.left = &b;
     e.right = &h;
-    e.is_dashed = false;
+    e.is_dashed = true;
     e.min_depth = 1;
     e.reference_depth = 1;
     
@@ -562,7 +569,7 @@ int main() {
     f.reference_depth = 3;
 
     g.parent = &f;
-    g.is_dashed = true;
+    g.is_dashed = false;
     g.min_depth = 4;
     g.reference_depth = 4;
     
@@ -580,22 +587,28 @@ int main() {
     i.reference_depth = 3;
     
     j.parent = &i;
-    j.is_dashed = true;
+    j.is_dashed = false;
     j.min_depth = 4;
     j.reference_depth = 4;
 
     tree_multiset s = { &e };
 
-    printtree(s.root);
-    printf("\n");
+    printf("graph {\n");
+
+    printf("subgraph {\n");
+    graphviz(s.root, 0);
+    printf("}\n");
 
     srand(time(NULL));
 
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 100; i++) {
         multiset_count(&s, rand() % 10 + 1);
-        printtree(s.root);
-        printf("\n");
+        printf("subgraph %d {\n", i + 1);
+        graphviz(s.root, i + 1);
+        printf("}\n");
     }
+
+    printf("}\n");
 
     return 0;
 }
