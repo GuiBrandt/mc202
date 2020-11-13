@@ -51,6 +51,30 @@ typedef struct tree_multiset_node {
 } node;
 
 /**
+ * @brief Mantém o valor auxiliar min_depth para um nó após alguma rotação ou
+ *        alteração no filho preferido.
+ * 
+ * @param root nó envolvido na rotação.
+ */
+inline static void maintain_min_depth(node* root) {
+    size_t min = root->reference_depth;
+
+    if (root->left && !root->left->is_dashed && root->left->min_depth < min) {
+        min = root->left->min_depth;        
+    }
+
+    if (
+        root->right
+        && !root->right->is_dashed
+        && root->right->min_depth < min
+    ) {
+        min = root->right->min_depth;
+    }
+
+    root->min_depth = min;
+}
+
+/**
  * @brief Faz uma rotação para a esquerda em um nó.
  * 
  * A rotação segue o diagrama abaixo:
@@ -92,6 +116,9 @@ inline static node* rotate_left(node* p) {
 
     p->parent = q;
     q->parent = o;
+
+    maintain_min_depth(p);
+    maintain_min_depth(q);
 
     return q;
 }
@@ -138,6 +165,9 @@ inline static node* rotate_right(node* p) {
     if (y) {
         y->parent = p;
     }
+
+    maintain_min_depth(p);
+    maintain_min_depth(q);
 
     return q;
 }
@@ -239,8 +269,9 @@ node* ref_predecessor(node* y) {
         current = current->left;
     }
 
-    if (current == NULL)
+    if (current == NULL) {
         return NULL;
+    }
 
     // Buscamos o nó de maior valor possível que ainda tenha profundidade
     // menor que y.
@@ -335,10 +366,12 @@ void switch_preferred(node* y) {
     if (x != NULL && z != NULL) {
         if (z->right) {
             z->right->is_dashed = !z->right->is_dashed;
+            maintain_min_depth(z);
         }
 
         if (x->left) {
             x->left->is_dashed = !x->left->is_dashed;
+            maintain_min_depth(x);
         }
     }
 }
@@ -486,36 +519,72 @@ int main() {
     node c = { 3, 1, 0 };
     node d = { 4, 1, 0 };
     node e = { 5, 1, 0 };
-
-    c.left = &b;
-    c.right = &d;
-    c.reference_depth = 1;
-    c.min_depth = 1;
-    c.is_dashed = true;
-
-    b.left = &a;
-    b.parent = &c;
-    b.reference_depth = 2;
-    b.min_depth = 2;
-    b.is_dashed = false;
+    node f = { 6, 1, 0 };
+    node g = { 7, 1, 0 };
+    node h = { 8, 1, 0 };
+    node i = { 9, 1, 0 };
+    node j = { 10, 1, 0 };
 
     a.parent = &b;
+    a.is_dashed = false;
     a.min_depth = 3;
     a.reference_depth = 3;
-    a.is_dashed = true;
 
-    d.right = &e;
+    b.parent = &e;
+    b.left = &a;
+    b.right = &c;
+    b.is_dashed = true;
+    b.min_depth = 2;
+    b.reference_depth = 2;
+    
+    c.parent = &b;
+    c.right = &d;
+    c.is_dashed = true;
+    c.min_depth = 3;
+    c.reference_depth = 3;
+
     d.parent = &c;
-    d.min_depth = 2;
-    d.reference_depth = 2;
     d.is_dashed = true;
+    d.min_depth = 4;
+    d.reference_depth = 4;
 
-    e.parent = &d;
-    e.is_dashed = true;
-    e.min_depth = 3;
-    e.reference_depth = 3;
+    e.parent = NULL;
+    e.left = &b;
+    e.right = &h;
+    e.is_dashed = false;
+    e.min_depth = 1;
+    e.reference_depth = 1;
+    
+    f.parent = &h;
+    f.right = &g;
+    f.is_dashed = false;
+    f.min_depth = 3;
+    f.reference_depth = 3;
 
-    tree_multiset s = { &c };
+    g.parent = &f;
+    g.is_dashed = true;
+    g.min_depth = 4;
+    g.reference_depth = 4;
+    
+    h.parent = &e;
+    h.left = &f;
+    h.right = &i;
+    h.is_dashed = true;
+    h.min_depth = 2;
+    h.reference_depth = 2;
+    
+    i.parent = &h;
+    i.right = &j;
+    i.is_dashed = true;
+    i.min_depth = 3;
+    i.reference_depth = 3;
+    
+    j.parent = &i;
+    j.is_dashed = true;
+    j.min_depth = 4;
+    j.reference_depth = 4;
+
+    tree_multiset s = { &e };
 
     printtree(s.root);
     printf("\n");
@@ -523,7 +592,7 @@ int main() {
     srand(time(NULL));
 
     for (int i = 0; i < 10000; i++) {
-        multiset_count(&s, rand() % 5 + 1);
+        multiset_count(&s, rand() % 10 + 1);
         printtree(s.root);
         printf("\n");
     }
