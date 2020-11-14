@@ -10,6 +10,9 @@
  *         O(log log n)-competitive dynamic binary search trees.
  *         SODA, pp 374–383, 2006.
  *         Disponível em https://www.cs.cmu.edu/~chengwen/paper/MST.pdf
+ * 
+ * Versão extendida do paper, também utilizada para referência, disponível em:
+ * https://pdfs.semanticscholar.org/8006/044b0a69b9d1828711ce909f3201f49c7b06.pdf
  */
 
 #include "tree_multiset.h"
@@ -38,16 +41,16 @@ typedef struct tree_multiset_node {
 
     // Profundidade do nó na árvore de referência.
     // A árvore de referência é uma árvore binária de busca balanceada
-    // imaginária com os nós da árvore multisplay. 
+    // imaginária com os nós da árvore multi-splay. 
     size_t ref_depth;
 
-    // Valor de profundidade mínimo na subárvore-splay do nó.
+    // Valor de ref_depth mínimo na subárvore-splay do nó.
     size_t min_depth;
 
     // Determina se a conexão com o nó pai é tracejada (true) ou sólida
     // (false). Uma conexão tracejada significa que este nó é raíz de uma
     // árvore splay, ou ainda o nó filho não-preferido.
-    bool is_dashed : 1;
+    bool is_splay_root : 1;
 } node;
 
 /**
@@ -59,13 +62,17 @@ typedef struct tree_multiset_node {
 inline static void maintain_min_depth(node* root) {
     size_t min = root->ref_depth;
 
-    if (root->left && !root->left->is_dashed && root->left->min_depth < min) {
+    if (
+        root->left != NULL
+        && !root->left->is_splay_root
+        && root->left->min_depth < min
+    ) {
         min = root->left->min_depth;        
     }
 
     if (
-        root->right
-        && !root->right->is_dashed
+        root->right != NULL
+        && !root->right->is_splay_root
         && root->right->min_depth < min
     ) {
         min = root->right->min_depth;
@@ -92,7 +99,7 @@ inline static void maintain_min_depth(node* root) {
  * 
  * @param root o nó sendo rotacionado.
  */
-inline static node* rotate_left(node* p) {
+inline static void rotate_left(node* p) {
     assert(p->right != NULL);
 
     node* o = p->parent;
@@ -118,14 +125,12 @@ inline static node* rotate_left(node* p) {
     q->parent = o;
 
     // Troca o tipo de aresta para p e q
-    p->is_dashed ^= q->is_dashed;
-    q->is_dashed ^= p->is_dashed;
-    p->is_dashed ^= q->is_dashed;
+    p->is_splay_root ^= q->is_splay_root;
+    q->is_splay_root ^= p->is_splay_root;
+    p->is_splay_root ^= q->is_splay_root;
 
     maintain_min_depth(p);
     maintain_min_depth(q);
-
-    return q;
 }
 
 /**
@@ -146,7 +151,7 @@ inline static node* rotate_left(node* p) {
  * 
  * @param root o nó sendo rotacionado.
  */
-inline static node* rotate_right(node* p) {
+inline static void rotate_right(node* p) {
     assert(p->left != NULL);
 
     node* o = p->parent;
@@ -172,36 +177,36 @@ inline static node* rotate_right(node* p) {
     }
 
     // Troca o tipo de aresta para p e q
-    p->is_dashed ^= q->is_dashed;
-    q->is_dashed ^= p->is_dashed;
-    p->is_dashed ^= q->is_dashed;
+    p->is_splay_root ^= q->is_splay_root;
+    q->is_splay_root ^= p->is_splay_root;
+    p->is_splay_root ^= q->is_splay_root;
 
     maintain_min_depth(p);
     maintain_min_depth(q);
-
-    return q;
 }
 
 /**
  * @brief Faz splay de um nó até que tenha um nó pai dado.
  * 
  * Se root != NULL, esta função assume que o nó dado está em uma das subárvores
- * do nó pai desejado. Caso contrário, a função tem comportamento indeterminado.
+ * splay do nó pai desejado. Caso contrário, a função tem comportamento
+ * indeterminado.
  * 
- * Se root == NULL, esta função leva o nó dado até a raíz da árvore.
+ * Se root == NULL, esta função leva o nó dado até a raíz da árvore splay
+ * correspondente.
  * 
  * @param subject nó sendo rotacionado.
  * @param root nó-pai desejado ao fim do splay.
  */
 void splay(node* subject, node* root) {
-    while (subject->parent != root && !subject->is_dashed) {
+    while (subject->parent != root && !subject->is_splay_root) {
         node* parent = subject->parent;
-        node* grandparent = parent->is_dashed ? NULL : parent->parent;
+        node* grandparent = parent->is_splay_root ? NULL : parent->parent;
 
         assert(parent != NULL);
 
         if (parent->right == subject) {
-            // Zag
+            // Zag (Rotação para a esquerda)
             if (grandparent == root) {
                 rotate_left(parent);
                 return;
@@ -209,12 +214,31 @@ void splay(node* subject, node* root) {
 
             assert(grandparent != NULL);
 
-            // Zag-Zag
+            // Zag-Zag (em R)
+            //
+            //    P                      R
+            //   / \                    / \ 
+            //  x   Q                  Q   w
+            //     / \       =>       / \ 
+            //    y   R              P   z
+            //       / \            / \ 
+            //      z   w          x   y
+            //
+            //
             if (grandparent->right == parent) {
                 rotate_left(grandparent);
                 rotate_left(parent);
 
-            // Zag-Zig
+            // Zag-Zig (em P)
+            //
+            //        R 
+            //       / \               P
+            //      Q   w            /   \ 
+            //     / \       =>     Q     R
+            //    x   P            / \   / \ 
+            //       / \          x   y z   w
+            //      y   z
+            //
             } else {
                 assert(grandparent->left == parent);
 
@@ -225,7 +249,7 @@ void splay(node* subject, node* root) {
         } else {
             assert(parent->left == subject);
 
-            // Zig
+            // Zig (Rotação para a direita)
             if (grandparent == root) {
                 rotate_right(parent);
                 return;
@@ -233,12 +257,12 @@ void splay(node* subject, node* root) {
 
             assert(grandparent != NULL);
 
-            // Zig-Zag
+            // Zig-Zag (Simétrico a Zag-Zig)
             if (grandparent->right == parent) {
                 rotate_right(parent);
                 rotate_left(grandparent);
 
-            // Zig-Zig
+            // Zig-Zig (Inverso de Zag-Zag)
             } else {
                 assert(grandparent->left == parent);
 
@@ -261,7 +285,10 @@ node* ref_predecessor(node* y) {
     node* current = y->left;
     int depth = y->ref_depth;
 
-    if (!current || current->is_dashed || current->min_depth >= depth) {
+    if (
+        current == NULL
+        || current->is_splay_root
+        || current->min_depth >= depth) {
         return NULL;
     }
 
@@ -274,7 +301,7 @@ node* ref_predecessor(node* y) {
 
         if (
             current->right == NULL
-            || current->right->is_dashed
+            || current->right->is_splay_root
             || current->right->min_depth >= depth
         ) {
             if (pred == NULL) {
@@ -304,7 +331,11 @@ node* ref_successor(node* y) {
     node* current = y->right;
     int depth = y->ref_depth;
 
-    if (!current || current->is_dashed || current->min_depth >= depth) {
+    if (
+        current == NULL
+        || current->is_splay_root
+        || current->min_depth >= depth
+    ) {
         return NULL;
     }
 
@@ -317,7 +348,7 @@ node* ref_successor(node* y) {
 
         if (
             current->left == NULL
-            || current->left->is_dashed 
+            || current->left->is_splay_root 
             || current->left->min_depth >= depth
         ) {
             if (succ == NULL) {
@@ -346,44 +377,49 @@ void switch_preferred(node* y) {
     splay(y, NULL);
 
     // Predecessor da subárvore esquerda de y na árvore de referência (L)
-    node* z = ref_predecessor(y);
+    node* x = ref_predecessor(y);
 
     // Sucessor da subárvore direita de y na árvore de referência (R)
-    node* x = ref_successor(y);
+    node* z = ref_successor(y);
 
-    // Subimos z e x até que sejam filhos de y, de forma que garantimos que a
-    // direita de z é L e a subárvore esquerda de x é R.
+    // Subimos x e z até que sejam filhos de y, de forma que garantimos que a
+    // direita de a é L e a subárvore esquerda de z é R.
+    // Se x e/ou z não existem, então a subárvore esquerda de y deve ser L e
+    // a subárvore direita de y deve ser R (seção 3.3.3 do paper extendido).
+
     node* l;
-    if (z != NULL) {
-        splay(z, y);
-        l = z->right;
+    if (x != NULL) {
+        splay(x, y);
+        l = x->right;
     } else {
         l = y->left;
     }
 
     node* r;
-    if (x != NULL) {
-        splay(x, y);
-        r = x->left;
+    if (z != NULL) {
+        splay(z, y);
+        r = z->left;
     } else {
         r = y->right;
     }
 
-    assert(!l || !r || l->is_dashed != r->is_dashed);
+    // Invariante: durante uma troca, um dos nós trocados deve ser um caminho
+    // preferido e outro não.
+    assert(!l || !r || l->is_splay_root != r->is_splay_root);
 
     if (l != NULL) {
-        l->is_dashed ^= true;
+        l->is_splay_root ^= true;
 
-        if (x) {
-            maintain_min_depth(x);
+        if (z) {
+            maintain_min_depth(z);
         }
     }
 
     if (r != NULL) {
-        r->is_dashed ^= true;
+        r->is_splay_root ^= true;
 
-        if (z) {
-            maintain_min_depth(z);
+        if (x) {
+            maintain_min_depth(x);
         }
     }
 }
@@ -398,13 +434,13 @@ void switch_preferred(node* y) {
  * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
-node* splay_predecessor(element_t key, node* splay_root) {
+node* predecessor_on_splay(element_t key, node* splay_root) {
     node* current = splay_root;
 
     while (
         current->key >= key
         && current->left
-        && !current->left->is_dashed
+        && !current->left->is_splay_root
     ) {
         current = current->left;
     }
@@ -413,7 +449,7 @@ node* splay_predecessor(element_t key, node* splay_root) {
         return NULL;
     }
 
-    while (current->right && !current->right->is_dashed) {
+    while (current->right && !current->right->is_splay_root) {
         current = current->right;
     }
 
@@ -429,13 +465,13 @@ node* splay_predecessor(element_t key, node* splay_root) {
  * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
-node* splay_successor(element_t key, node* splay_root) {
+node* successor_on_splay(element_t key, node* splay_root) {
     node* current = splay_root;
 
     while (
         current->key <= key
         && current->right
-        && !current->right->is_dashed
+        && !current->right->is_splay_root
     ) {
         current = current->right;
     }
@@ -444,7 +480,7 @@ node* splay_successor(element_t key, node* splay_root) {
         return NULL;
     }
 
-    while (current->left && !current->left->is_dashed) {
+    while (current->left && !current->left->is_splay_root) {
         current = current->left;
     }
 
@@ -481,15 +517,16 @@ void switch_and_maintain_root(tree_multiset* multiset, node* y) {
 void multi_splay(tree_multiset* multiset, node* found) {
     for (
         node* backtrack = found;
-        backtrack && backtrack->parent != NULL;
+        backtrack != NULL && backtrack->parent != NULL;
         backtrack = backtrack->parent
     ) {
-        if (!backtrack->is_dashed) {
+        // Queremos ajustar apenas as aretas não-preferidas
+        if (!backtrack->is_splay_root) {
             continue;
         }
 
-        node* v = splay_predecessor(found->key, backtrack->parent);
-        node* w = splay_successor(found->key, backtrack->parent);
+        node* v = predecessor_on_splay(found->key, backtrack->parent);
+        node* w = successor_on_splay(found->key, backtrack->parent);
 
         if (v != NULL && (w == NULL || v->ref_depth < w->ref_depth)) {
             switch_and_maintain_root(multiset, v);
@@ -538,7 +575,7 @@ void graphviz(node* root, int id) {
     if (root->left) {
         graphviz(root->left, id);
         printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->left->key);
-        if (root->left->is_dashed) {
+        if (root->left->is_splay_root) {
             printf(" [style=dashed];");
         }
         printf("\n");
@@ -547,7 +584,7 @@ void graphviz(node* root, int id) {
     if (root->right) {
         graphviz(root->right, id);
         printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->right->key);
-        if (root->right->is_dashed) {
+        if (root->right->is_splay_root) {
             printf(" [style=dashed];");
         }
         printf("\n");
@@ -581,61 +618,61 @@ int main() {
     node j = { 10, 1, 0 };
 
     a.parent = &b;
-    a.is_dashed = false;
+    a.is_splay_root = false;
     a.min_depth = 3;
     a.ref_depth = 3;
 
     b.parent = &e;
     b.left = &a;
     b.right = &c;
-    b.is_dashed = false;
+    b.is_splay_root = false;
     b.min_depth = 2;
     b.ref_depth = 2;
     
     c.parent = &b;
     c.right = &d;
-    c.is_dashed = true;
+    c.is_splay_root = true;
     c.min_depth = 3;
     c.ref_depth = 3;
 
     d.parent = &c;
-    d.is_dashed = false;
+    d.is_splay_root = false;
     d.min_depth = 4;
     d.ref_depth = 4;
 
     e.parent = NULL;
     e.left = &b;
     e.right = &h;
-    e.is_dashed = true;
+    e.is_splay_root = true;
     e.min_depth = 1;
     e.ref_depth = 1;
     
     f.parent = &h;
     f.right = &g;
-    f.is_dashed = false;
+    f.is_splay_root = false;
     f.min_depth = 3;
     f.ref_depth = 3;
 
     g.parent = &f;
-    g.is_dashed = false;
+    g.is_splay_root = false;
     g.min_depth = 4;
     g.ref_depth = 4;
     
     h.parent = &e;
     h.left = &f;
     h.right = &i;
-    h.is_dashed = true;
+    h.is_splay_root = true;
     h.min_depth = 2;
     h.ref_depth = 2;
     
     i.parent = &h;
     i.right = &j;
-    i.is_dashed = true;
+    i.is_splay_root = true;
     i.min_depth = 3;
     i.ref_depth = 3;
     
     j.parent = &i;
-    j.is_dashed = false;
+    j.is_splay_root = false;
     j.min_depth = 4;
     j.ref_depth = 4;
 
