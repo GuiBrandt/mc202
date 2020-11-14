@@ -39,7 +39,7 @@ typedef struct tree_multiset_node {
     // Profundidade do nó na árvore de referência.
     // A árvore de referência é uma árvore binária de busca balanceada
     // imaginária com os nós da árvore multisplay. 
-    size_t reference_depth;
+    size_t ref_depth;
 
     // Valor de profundidade mínimo na subárvore-splay do nó.
     size_t min_depth;
@@ -47,7 +47,7 @@ typedef struct tree_multiset_node {
     // Determina se a conexão com o nó pai é tracejada (true) ou sólida
     // (false). Uma conexão tracejada significa que este nó é raíz de uma
     // árvore splay, ou ainda o nó filho não-preferido.
-    bool is_dashed;
+    bool is_dashed : 1;
 } node;
 
 /**
@@ -57,7 +57,7 @@ typedef struct tree_multiset_node {
  * @param root nó envolvido na rotação.
  */
 inline static void maintain_min_depth(node* root) {
-    size_t min = root->reference_depth;
+    size_t min = root->ref_depth;
 
     if (root->left && !root->left->is_dashed && root->left->min_depth < min) {
         min = root->left->min_depth;        
@@ -117,6 +117,11 @@ inline static node* rotate_left(node* p) {
     p->parent = q;
     q->parent = o;
 
+    // Troca o tipo de aresta para p e q
+    p->is_dashed ^= q->is_dashed;
+    q->is_dashed ^= p->is_dashed;
+    p->is_dashed ^= q->is_dashed;
+
     maintain_min_depth(p);
     maintain_min_depth(q);
 
@@ -166,6 +171,11 @@ inline static node* rotate_right(node* p) {
         y->parent = p;
     }
 
+    // Troca o tipo de aresta para p e q
+    p->is_dashed ^= q->is_dashed;
+    q->is_dashed ^= p->is_dashed;
+    p->is_dashed ^= q->is_dashed;
+
     maintain_min_depth(p);
     maintain_min_depth(q);
 
@@ -184,9 +194,9 @@ inline static node* rotate_right(node* p) {
  * @param root nó-pai desejado ao fim do splay.
  */
 void splay(node* subject, node* root) {
-    while (subject->parent != root) {
+    while (subject->parent != root && !subject->is_dashed) {
         node* parent = subject->parent;
-        node* grandparent = parent->parent;
+        node* grandparent = parent->is_dashed ? NULL : parent->parent;
 
         assert(parent != NULL);
 
@@ -248,49 +258,36 @@ void splay(node* subject, node* root) {
  * @return o nó do predecessor.
  */
 node* ref_predecessor(node* y) {
-    node* current = y;
-    int depth = y->reference_depth;
+    node* current = y->left;
+    int depth = y->ref_depth;
 
-    // Encontra o primeiro nó igual a y ou acima na mesma árvore splay onde
-    // existe algum nó com profundidade menor que y na árvore referência.
-    while (current->min_depth >= depth) {
-        node* parent = current->parent;
-
-        // Se o pai é direito ou se o nó atual é raíz da árvore splay,
-        // não existe nó com profundidade < y.reference_depth na árvore.
-        if (!parent || parent->left == current || current->is_dashed) {
-            return NULL;
-        }
-
-        current = current->parent;
-    }
-
-    if (current == y) {
-        current = current->left;
-    }
-
-    if (current == NULL) {
+    if (!current || current->is_dashed || current->min_depth >= depth) {
         return NULL;
     }
 
-    // Buscamos o nó de maior valor possível que ainda tenha profundidade
-    // menor que y.
-    // Para isso, basta um percurso para a direita enquanto a profundidade
-    // mínima da árvore splay com raíz no nó for menor que a profundidade
-    // desejada.
-    // Isso é verdadeiro por construção, uma vez que garantimos que o valor de
-    // min_depth dos nós filhos deve ser sempre maior ou igual ao valor do nó
-    // pai (por definição de mínimo), e os valores na subárvore esquerda devem
-    // ser sempre menores que o valor do pai (propriedade da ABB).
-    while (
-        current->right
-        && !current->right->is_dashed
-        && current->right->min_depth < depth
-    ) {
-        current = current->right;
+    node* pred = NULL;
+
+    while (current && current->min_depth < depth) {
+        if (current->ref_depth < depth) {
+            pred = current;
+        }
+
+        if (
+            current->right == NULL
+            || current->right->is_dashed
+            || current->right->min_depth >= depth
+        ) {
+            if (pred == NULL) {
+                current = current->left;
+            } else {
+                break;
+            }
+        } else {
+            current = current->right;
+        }
     }
 
-    return current;
+    return pred;
 }
 
 /**
@@ -304,60 +301,90 @@ node* ref_predecessor(node* y) {
  * @return o nó do sucessor.
  */
 node* ref_successor(node* y) {
-    node* current = y;
-    int depth = y->reference_depth;
+    node* current = y->right;
+    int depth = y->ref_depth;
 
-    while (current->min_depth >= depth) {
-        node* parent = current->parent;
-
-        if (!parent || parent->right == current || current->is_dashed) {
-            return NULL;
-        }
-
-        current = current->parent;
-    }
-
-    if (current == y) {
-        current = current->right;
-    }
-
-    if (current == NULL) {
+    if (!current || current->is_dashed || current->min_depth >= depth) {
         return NULL;
     }
 
-    while (
-        current->left
-        && !current->left->is_dashed
-        && current->left->min_depth < depth
-    ) {
-        current = current->left;
+    node* succ = NULL;
+
+    while (current && current->min_depth < depth) {
+        if (current->ref_depth < depth) {
+            succ = current;
+        }
+
+        if (
+            current->left == NULL
+            || current->left->is_dashed 
+            || current->left->min_depth >= depth
+        ) {
+            if (succ == NULL) {
+                current = current->right;
+            } else {
+                break;
+            }
+        } else {
+            current = current->left;
+        }
     }
 
-    return current;
+    return succ;
 }
 
 /**
- * @brief Troca o filho preferido de um nó.
+ * @brief Troca o filho preferido de um nó na árvore de referência.
+ * 
+ * Esse algoritmo é descrito na seção 3 de [WDS06].
  * 
  * @param y nó para o qual trocar o filho preferido.
  */
 void switch_preferred(node* y) {
-    node* z = ref_predecessor(y);
-    node* x = ref_successor(y);
-
+    // Fazemos splay de y até a raíz, para garantir que x e z são descendentes
+    // de y.
     splay(y, NULL);
 
-    if (x != NULL && z != NULL && z->right != NULL && x->left != NULL) {
+    // Predecessor da subárvore esquerda de y na árvore de referência (L)
+    node* z = ref_predecessor(y);
+
+    // Sucessor da subárvore direita de y na árvore de referência (R)
+    node* x = ref_successor(y);
+
+    // Subimos z e x até que sejam filhos de y, de forma que garantimos que a
+    // direita de z é L e a subárvore esquerda de x é R.
+    node* l;
+    if (z != NULL) {
         splay(z, y);
+        l = z->right;
+    } else {
+        l = y->left;
+    }
+
+    node* r;
+    if (x != NULL) {
         splay(x, y);
+        r = x->left;
+    } else {
+        r = y->right;
+    }
 
-        assert(z->right->is_dashed != x->left->is_dashed);
+    assert(!l || !r || l->is_dashed != r->is_dashed);
 
-        z->right->is_dashed ^= true;
-        maintain_min_depth(z);
+    if (l != NULL) {
+        l->is_dashed ^= true;
 
-        x->left->is_dashed ^= true;
-        maintain_min_depth(x);
+        if (x) {
+            maintain_min_depth(x);
+        }
+    }
+
+    if (r != NULL) {
+        r->is_dashed ^= true;
+
+        if (z) {
+            maintain_min_depth(z);
+        }
     }
 }
 
@@ -428,6 +455,52 @@ struct tree_multiset {
     node* root;
 };
 
+/**
+ * @brief Troca o caminho preferido para um nó mantendo o ponteiro da raíz de
+ *        um conjunto atualizado. 
+ * 
+ * @param multiset o conjunto.
+ * @param y o nó cujo caminho preferido será trocado.
+ */
+void switch_and_maintain_root(tree_multiset* multiset, node* y) {
+    switch_preferred(y);
+
+    if (y->parent == NULL) {
+        multiset->root = y;
+    }
+}
+
+/**
+ * @brief Procedimento de correção de caminho preferido.
+ * 
+ * Descrito em [WDS06], seção 3.
+ * 
+ * @param multiset o conjunto.
+ * @param found o nó com o valor encontrado.
+ */
+void multi_splay(tree_multiset* multiset, node* found) {
+    for (
+        node* backtrack = found;
+        backtrack && backtrack->parent != NULL;
+        backtrack = backtrack->parent
+    ) {
+        if (!backtrack->is_dashed) {
+            continue;
+        }
+
+        node* v = splay_predecessor(found->key, backtrack->parent);
+        node* w = splay_successor(found->key, backtrack->parent);
+
+        if (v != NULL && (w == NULL || v->ref_depth < w->ref_depth)) {
+            switch_and_maintain_root(multiset, v);
+        } else if (w != NULL) {
+            switch_and_maintain_root(multiset, w);
+        }
+    }
+
+    switch_and_maintain_root(multiset, found);
+}
+
 // Complexidade: O(log^2 n) pior caso       [WDS06, teorema 4.1]
 //               O(log log n)-competitiva   [WDS06, teorema 4.2]
 //               O(log n) amortizado        [WDS06, teorema 4.3]
@@ -435,7 +508,6 @@ struct tree_multiset {
 // Em particular, se a sequência de acessos for sequencial, o tempo gasto ao
 // todo é O(n).
 size_t multiset_count(tree_multiset* multiset, element_t elem) {
-    // Busca em ABB convencional
     node* current = multiset->root;
     while (current && current->key != elem) {
         if (elem < current->key) {
@@ -449,30 +521,7 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
         return 0;
     }
 
-    // Procedimento de correção de caminho preferido (descrito em [WDS06],
-    // seção 3).
-    node* backtrack = current;
-    while (backtrack && backtrack->parent != NULL) {
-        if (backtrack->is_dashed) {
-            node* v = splay_predecessor(elem, backtrack->parent);
-            node* w = splay_successor(elem, backtrack->parent);
-            
-            if (
-                v != NULL
-                && (w == NULL || v->reference_depth < w->reference_depth)
-            ) {
-                switch_preferred(v);
-                
-            } else if (w) {
-                switch_preferred(w);
-            }
-        }
-
-        backtrack = backtrack->parent;
-    }
-
-    switch_preferred(current);
-    multiset->root = current;
+    multi_splay(multiset, current);
 
     return current->count;
 }
@@ -480,19 +529,8 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
 #include <stdio.h>
 #include <inttypes.h>
 
-void printtree(node* root) {
-    printf("(");
-    
-    if (root->left)
-        printtree(root->left);
-
-    printf(" %"PRIu64" ", root->key);
-    
-    if (root->right)
-        printtree(root->right);
-
-    printf(")");
-}
+#include <time.h>
+#include <stdlib.h>
 
 void graphviz(node* root, int id) {
     printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64"\"];\n", id, root->key, root->key);
@@ -516,8 +554,19 @@ void graphviz(node* root, int id) {
     }
 }
 
-#include <time.h>
-#include <stdlib.h>
+void printtree(node* root) {
+    printf("(");
+    
+    if (root->left)
+        printtree(root->left);
+
+    printf(" %"PRIu64" ", root->key);
+    
+    if (root->right)
+        printtree(root->right);
+
+    printf(")");
+}
 
 int main() {
     node a = { 1, 1, 0 };
@@ -534,67 +583,68 @@ int main() {
     a.parent = &b;
     a.is_dashed = false;
     a.min_depth = 3;
-    a.reference_depth = 3;
+    a.ref_depth = 3;
 
     b.parent = &e;
     b.left = &a;
     b.right = &c;
     b.is_dashed = false;
     b.min_depth = 2;
-    b.reference_depth = 2;
+    b.ref_depth = 2;
     
     c.parent = &b;
     c.right = &d;
     c.is_dashed = true;
     c.min_depth = 3;
-    c.reference_depth = 3;
+    c.ref_depth = 3;
 
     d.parent = &c;
     d.is_dashed = false;
     d.min_depth = 4;
-    d.reference_depth = 4;
+    d.ref_depth = 4;
 
     e.parent = NULL;
     e.left = &b;
     e.right = &h;
-    e.is_dashed = false;
+    e.is_dashed = true;
     e.min_depth = 1;
-    e.reference_depth = 1;
+    e.ref_depth = 1;
     
     f.parent = &h;
     f.right = &g;
     f.is_dashed = false;
     f.min_depth = 3;
-    f.reference_depth = 3;
+    f.ref_depth = 3;
 
     g.parent = &f;
     g.is_dashed = false;
     g.min_depth = 4;
-    g.reference_depth = 4;
+    g.ref_depth = 4;
     
     h.parent = &e;
     h.left = &f;
     h.right = &i;
     h.is_dashed = true;
     h.min_depth = 2;
-    h.reference_depth = 2;
+    h.ref_depth = 2;
     
     i.parent = &h;
     i.right = &j;
     i.is_dashed = true;
     i.min_depth = 3;
-    i.reference_depth = 3;
+    i.ref_depth = 3;
     
     j.parent = &i;
     j.is_dashed = false;
     j.min_depth = 4;
-    j.reference_depth = 4;
+    j.ref_depth = 4;
 
     tree_multiset s = { &e };
 
     printf("graph {\n");
 
-    printf("subgraph {\n");
+    printf("subgraph cluster_ref {\n");
+    printf("label=\"Reference\";");
     graphviz(s.root, 0);
     printf("}\n");
 
@@ -602,7 +652,7 @@ int main() {
 
     for (int i = 0; i < 100; i++) {
         multiset_count(&s, rand() % 10 + 1);
-        printf("subgraph %d {\n", i + 1);
+        printf("subgraph cluster_%d {\n", i + 1);
         graphviz(s.root, i + 1);
         printf("}\n");
     }
