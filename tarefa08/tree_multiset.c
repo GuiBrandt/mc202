@@ -3,7 +3,7 @@
  * @author Guilherme G. Brandt (235970)
  * 
  * @brief Implementação do ADT de multiset usando uma árvore multisplay [WDS06]
- * 
+
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa08.html
  * 
  * [WDS06] C. C. Wang, J. Derryberry, and D. D. Sleator.
@@ -19,6 +19,13 @@
 
 #include <stdbool.h>
 #include <assert.h>
+
+/**
+ * @brief Enumeração de cores de nós da árvore de referência. 
+ */
+typedef enum {
+    RED, BLACK
+} color;
 
 /**
  * @brief Estrutura de nó da árvore multi-splay. 
@@ -51,6 +58,9 @@ typedef struct tree_multiset_node {
     // (false). Uma conexão tracejada significa que este nó é raíz de uma
     // árvore splay, ou ainda o nó filho não-preferido.
     bool is_splay_root : 1;
+
+    // Cor do nó na árvore de referência
+    color color : 1;
 } node;
 
 /**
@@ -281,7 +291,7 @@ void splay(node* subject, node* root) {
  * 
  * @return o nó do predecessor.
  */
-node* ref_predecessor(node* y) {
+node* ref_left_parent(node* y) {
     node* current = y->left;
     int depth = y->ref_depth;
 
@@ -321,13 +331,13 @@ node* ref_predecessor(node* y) {
  * @brief Retorna o nó do sucessor (x) de um nó dado (y) seguindo o critério
  *        descrito na seção 3 de [WDS06].
  * 
- * Simétrico a ref_predecessor.
+ * Simétrico a ref_left_parent.
  * 
  * @param y o nó dado.
  * 
  * @return o nó do sucessor.
  */
-node* ref_successor(node* y) {
+node* ref_right_parent(node* y) {
     node* current = y->right;
     int depth = y->ref_depth;
 
@@ -376,11 +386,11 @@ void switch_preferred(node* y) {
     // de y.
     splay(y, NULL);
 
-    // Predecessor da subárvore esquerda de y na árvore de referência (L)
-    node* x = ref_predecessor(y);
+    // Predecessor (x) da subárvore esquerda de y na árvore de referência (L)
+    node* x = ref_left_parent(y);
 
-    // Sucessor da subárvore direita de y na árvore de referência (R)
-    node* z = ref_successor(y);
+    // Sucessor (z) da subárvore direita de y na árvore de referência (R)
+    node* z = ref_right_parent(y);
 
     // Subimos x e z até que sejam filhos de y, de forma que garantimos que a
     // direita de a é L e a subárvore esquerda de z é R.
@@ -485,6 +495,201 @@ node* successor_on_splay(element_t key, node* splay_root) {
     }
 
     return current;    
+}
+
+/**
+ * @brief Encontra o nó com menor profundidade na árvore de referência em uma
+ *        árvore multi-splay com raíz dada.
+ * 
+ * @param root a raíz (!= NULL).
+ * 
+ * @return o nó com menor profundidade.
+ */
+node* ref_topmost(node* root) {
+    assert(root != NULL);
+
+    if (root->min_depth == root->ref_depth) {
+        return root;
+    }
+    
+    if (
+        root->left != NULL &&
+        (root->right == NULL || root->left->min_depth < root->right->min_depth)
+    ) {
+        return ref_topmost(root->left);
+    } else {
+        assert(root->right != NULL);
+        assert(root->right->min_depth < root->ref_depth);
+        
+        return ref_topmost(root->right);
+    }
+}
+
+/**
+ * @brief Encontra o nó do filho esquerdo de um nó na árvore de referência.
+ * 
+ * Descrito na seção 5.2.2 do paper extendido.
+ * 
+ * @param v nó dado (!= NULL).
+ * 
+ * @return o nó do filho esquerdo na árvore de referência.
+ */
+node* ref_left_child(node* v) {
+    assert(v != NULL);
+    switch_preferred(v);
+    
+    node* t_l = ref_left_parent(v) == NULL ? v->left : v->left->right;
+    
+    node* l = NULL;
+
+    if (t_l != NULL) {
+        l = ref_topmost(t_l);
+        switch_preferred(l);
+        switch_preferred(l);
+    }
+
+    switch_preferred(v);
+
+    return l;
+}
+
+/**
+ * @brief Encontra o nó do filho direito de um nó na árvore de referência.
+ * 
+ * Descrito na seção 5.2.2 do paper extendido.
+ * 
+ * @param v nó dado (!= NULL).
+ * 
+ * @return o nó do filho direito na árvore de referência.
+ */
+node* ref_right_child(node* v) {
+    assert(v != NULL);
+    switch_preferred(v);
+    
+    node* t_r = ref_left_parent(v) == NULL ? v->right : v->right->left;
+    
+    node* r = NULL;
+
+    if (t_r != NULL) {
+        r = ref_topmost(t_r);
+        switch_preferred(r);
+        switch_preferred(r);
+    }
+
+    switch_preferred(v);
+
+    return r;
+}
+
+/**
+ * @brief Encontra a raíz da árvore splay de um nó dado.
+ * 
+ * @param v nó dado (!= NULL).
+ * 
+ * @return o nó raíz da árvore splay correspondente.
+ */
+node* splay_root(node* v) {
+    assert(v != NULL);
+
+    node* r = v;
+
+    while (!r->is_splay_root) {
+        r = r->parent;
+    }
+
+    return r;
+}
+
+/**
+ * @brief Encontra o pai esquerdo de um nó na árvore (ignorando os caminhos
+ *        preferidos).
+ * 
+ * @param root nó raíz de uma árvore splay.
+ * 
+ * @return o nó do pai esquerdo do nó dado.
+ */
+node* left_parent(node* root) {
+    assert(root != NULL);
+
+    node* current = root;
+
+    while (current->parent != NULL) {
+        if (current->parent->right == current) {
+            return current->parent;
+        }
+    
+        current = current->parent;
+    }
+
+    return NULL;
+}
+
+/**
+ * @brief Encontra o pai direito de um nó na árvore (ignorando os caminhos
+ *        preferidos).
+ * 
+ * @param root nó raíz de uma árvore splay.
+ * 
+ * @return o nó do pai direito do nó dado.
+ */
+node* right_parent(node* root) {
+    node* current = root;
+
+    while (current->parent != NULL) {
+        if (current->parent->left == current) {
+            return current->parent;
+        }
+    
+        current = current->parent;
+    }
+
+    return NULL;
+}
+
+/**
+ * @brief Encontra o nó do pai de um nó na árvore de referência.
+ * 
+ * Descrito na seção 5.2.2 do paper extendido.
+ * 
+ * @param v nó dado (!= NULL).
+ * 
+ * @return o nó do pai na árvore de referência.
+ */
+node* ref_parent(node* v) {
+    switch_preferred(v);
+    switch_preferred(v);
+
+    size_t parent_depth = v->ref_depth - 1;
+
+    if (
+        v->left != NULL
+        && !v->left->is_splay_root
+        && v->left->ref_depth == parent_depth
+    ) {
+        return v->left;
+    }
+    
+    if (
+        v->right != NULL
+        && !v->right->is_splay_root
+        && v->right->ref_depth == parent_depth
+    ) {
+        return v->right;
+    }
+
+    node* r = splay_root(v);
+
+    node* l_p = left_parent(r);
+    if (l_p != NULL && l_p->ref_depth == parent_depth) {
+        return l_p;
+    }
+
+    node* r_p = right_parent(r);
+    if (r_p != NULL && r_p->ref_depth == parent_depth) {
+        return r_p;
+    }
+
+    return NULL;
 }
 
 struct tree_multiset {
@@ -695,6 +900,16 @@ int main() {
     }
 
     printf("}\n");
+
+    node* l = ref_left_child(&e);
+    printf("%"PRIu64"\n", l->key);
+
+    node* r = ref_right_child(&e);
+    printf("%"PRIu64"\n", r->key);
+
+    printf("%"PRIu64"\n", ref_parent(ref_right_child(&e))->key);
+    printf("%"PRIu64"\n", ref_parent(ref_left_child(&e))->key);
+    printf("%p\n", ref_parent(&e));
 
     return 0;
 }
