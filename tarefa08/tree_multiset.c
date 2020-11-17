@@ -464,84 +464,19 @@ void switch_preferred(node* y) {
     // preferido e outro não.
     assert(!l || !r || l->is_splay_root != r->is_splay_root);
 
-    if (l != NULL) {
+    if (l != NULL && r != NULL) {
         l->is_splay_root ^= true;
 
         if (z != NULL) {
             maintain_min_depth(z);
         }
-    }
 
-    if (r != NULL) {
         r->is_splay_root ^= true;
 
         if (x != NULL) {
             maintain_min_depth(x);
         }
     }
-}
-
-/**
- * @brief Retorna o nó do predecessor de um valor dado em uma árvore splay
- *        dada.
- * 
- * @param key chave do valor buscado.
- * @param splay_root raíz da árvore splay.
- * 
- * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
- *         seja mínimo.
- */
-node* predecessor_on_splay(element_t key, node* splay_root) {
-    node* current = splay_root;
-
-    while (
-        current->key >= key
-        && current->left
-        && !current->left->is_splay_root
-    ) {
-        current = current->left;
-    }
-
-    if (current->key >= key) {
-        return NULL;
-    }
-
-    while (current->right && !current->right->is_splay_root) {
-        current = current->right;
-    }
-
-    return current;
-}
-
-/**
- * @brief Retorna o nó do sucessor de um valor dado em uma árvore splay dada.
- * 
- * @param key chave do valor buscado.
- * @param splay_root raíz da árvore splay.
- * 
- * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
- *         seja mínimo.
- */
-node* successor_on_splay(element_t key, node* splay_root) {
-    node* current = splay_root;
-
-    while (
-        current->key <= key
-        && current->right
-        && !current->right->is_splay_root
-    ) {
-        current = current->right;
-    }
-
-    if (current->key <= key) {
-        return NULL;
-    }
-
-    while (current->left && !current->left->is_splay_root) {
-        current = current->left;
-    }
-
-    return current;    
 }
 
 /**
@@ -579,62 +514,6 @@ node* ref_topmost(node* root) {
         
         return ref_topmost(root->right);
     }
-}
-
-/**
- * @brief Encontra o nó do filho esquerdo de um nó na árvore de referência.
- * 
- * Descrito na seção 5.2.2 do paper extendido.
- * 
- * @param v nó dado (!= NULL).
- * 
- * @return o nó do filho esquerdo na árvore de referência.
- */
-node* ref_left_child(node* v) {
-    assert(v != NULL);
-    switch_preferred(v);
-    
-    node* t_l = ref_left_parent(v) == NULL ? v->left : v->left->right;
-    
-    node* l = NULL;
-
-    if (t_l != NULL) {
-        l = ref_topmost(t_l);
-        switch_preferred(l);
-        switch_preferred(l);
-    }
-
-    switch_preferred(v);
-
-    return l;
-}
-
-/**
- * @brief Encontra o nó do filho direito de um nó na árvore de referência.
- * 
- * Descrito na seção 5.2.2 do paper extendido.
- * 
- * @param v nó dado (!= NULL).
- * 
- * @return o nó do filho direito na árvore de referência.
- */
-node* ref_right_child(node* v) {
-    assert(v != NULL);
-    switch_preferred(v);
-    
-    node* t_r = ref_left_parent(v) == NULL ? v->right : v->right->left;
-    
-    node* r = NULL;
-
-    if (t_r != NULL) {
-        r = ref_topmost(t_r);
-        switch_preferred(r);
-        switch_preferred(r);
-    }
-
-    switch_preferred(v);
-
-    return r;
 }
 
 /**
@@ -707,6 +586,81 @@ node* right_parent(node* root, int* depth) {
     return NULL;
 }
 
+struct tree_multiset {
+    node* root;
+};
+
+/**
+ * @brief Troca o caminho preferido para um nó mantendo o ponteiro da raíz de
+ *        um conjunto atualizado. 
+ * 
+ * @param multiset o conjunto.
+ * @param y o nó cujo caminho preferido será trocado.
+ */
+void switch_and_maintain_root(tree_multiset* multiset, node* y) {
+    switch_preferred(y);
+
+    if (y->parent == NULL) {
+        multiset->root = y;
+    }
+}
+
+/**
+ * @brief Encontra o nó do filho esquerdo de um nó na árvore de referência.
+ * 
+ * Descrito na seção 5.2.2 do paper extendido.
+ * 
+ * @param v nó dado (!= NULL).
+ * 
+ * @return o nó do filho esquerdo na árvore de referência.
+ */
+node* ref_left_child(tree_multiset* multiset, node* v) {
+    assert(v != NULL);
+    switch_and_maintain_root(multiset, v);
+    
+    node* t_l = ref_left_parent(v) == NULL ? v->left : v->left->right;
+    
+    node* l = NULL;
+
+    if (t_l != NULL) {
+        l = ref_topmost(t_l);
+        switch_and_maintain_root(multiset, l);
+        switch_and_maintain_root(multiset, l);
+    }
+
+    switch_and_maintain_root(multiset, v);
+
+    return l;
+}
+
+/**
+ * @brief Encontra o nó do filho direito de um nó na árvore de referência.
+ * 
+ * Descrito na seção 5.2.2 do paper extendido.
+ * 
+ * @param v nó dado (!= NULL).
+ * 
+ * @return o nó do filho direito na árvore de referência.
+ */
+node* ref_right_child(tree_multiset* multiset, node* v) {
+    assert(v != NULL);
+    switch_and_maintain_root(multiset, v);
+    
+    node* t_r = ref_left_parent(v) == NULL ? v->right : v->right->left;
+    
+    node* r = NULL;
+
+    if (t_r != NULL) {
+        r = ref_topmost(t_r);
+        switch_and_maintain_root(multiset, r);
+        switch_and_maintain_root(multiset, r);
+    }
+
+    switch_and_maintain_root(multiset, v);
+
+    return r;
+}
+
 /**
  * @brief Encontra o nó do pai de um nó na árvore de referência.
  * 
@@ -716,9 +670,9 @@ node* right_parent(node* root, int* depth) {
  * 
  * @return o nó do pai na árvore de referência.
  */
-node* ref_parent(node* v) {
-    switch_preferred(v);
-    switch_preferred(v);
+node* ref_parent(tree_multiset* multiset, node* v) {
+    switch_and_maintain_root(multiset, v);
+    switch_and_maintain_root(multiset, v);
 
     if (
         v->left != NULL
@@ -754,23 +708,71 @@ node* ref_parent(node* v) {
     return NULL;
 }
 
-struct tree_multiset {
-    node* root;
-};
+/**
+ * @brief Retorna o nó do predecessor de um valor dado em uma árvore splay
+ *        dada.
+ * 
+ * @param key chave do valor buscado.
+ * @param splay_root raíz da árvore splay.
+ * 
+ * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
+ *         seja mínimo.
+ */
+node* predecessor_on_splay(element_t key, node* splay_root, int* depth) {
+    node* current = splay_root;
+
+    while (
+        current->key >= key
+        && current->left
+        && !current->left->is_splay_root
+    ) {
+        current = current->left;
+        *depth += current->delta_ref_depth;
+    }
+
+    if (current->key >= key) {
+        return NULL;
+    }
+
+    while (current->right && !current->right->is_splay_root) {
+        current = current->right;
+        *depth += current->delta_ref_depth;
+    }
+
+    return current;
+}
 
 /**
- * @brief Troca o caminho preferido para um nó mantendo o ponteiro da raíz de
- *        um conjunto atualizado. 
+ * @brief Retorna o nó do sucessor de um valor dado em uma árvore splay dada.
  * 
- * @param multiset o conjunto.
- * @param y o nó cujo caminho preferido será trocado.
+ * @param key chave do valor buscado.
+ * @param splay_root raíz da árvore splay.
+ * 
+ * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
+ *         seja mínimo.
  */
-void switch_and_maintain_root(tree_multiset* multiset, node* y) {
-    switch_preferred(y);
+node* successor_on_splay(element_t key, node* splay_root, int* depth) {
+    node* current = splay_root;
 
-    if (y->parent == NULL) {
-        multiset->root = y;
+    while (
+        current->key <= key
+        && current->right
+        && !current->right->is_splay_root
+    ) {
+        current = current->right;
+        *depth += current->delta_ref_depth;
     }
+
+    if (current->key <= key) {
+        return NULL;
+    }
+
+    while (current->left && !current->left->is_splay_root) {
+        current = current->left;
+        *depth += current->delta_ref_depth;
+    }
+
+    return current;
 }
 
 /**
@@ -792,12 +794,17 @@ void multi_splay(tree_multiset* multiset, node* found) {
             continue;
         }
 
-        node* v = predecessor_on_splay(found->key, backtrack->parent);
-        node* w = successor_on_splay(found->key, backtrack->parent);
+        int v_depth = 0;
+        node* v = predecessor_on_splay(found->key, backtrack->parent, &v_depth);
 
-        if (v != NULL && (w == NULL || v->delta_ref_depth < w->delta_ref_depth)) {
+        int w_depth = 0;
+        node* w = successor_on_splay(found->key, backtrack->parent, &w_depth);
+
+        if (v != NULL && (w == NULL || v_depth < w_depth)) {
             switch_and_maintain_root(multiset, v);
-        } else if (w != NULL) {
+        } else {
+            assert(w != NULL);
+
             switch_and_maintain_root(multiset, w);
         }
     }
@@ -939,33 +946,22 @@ int main() {
 
     tree_multiset s = { &e };
 
-    printf("graph {\n");
-
-    printf("subgraph cluster_ref {\n");
-    printf("label=\"Reference\";");
-    graphviz(s.root, 0);
-    printf("}\n");
-
     srand(time(NULL));
+    for (int i = 0; i < 1000; i++) { 
+        for (int i = 0; i < 1000; i++) {
+            multiset_count(&s, rand() % 10 + 1);
+        }
 
-    for (int i = 0; i < 100; i++) {
-        multiset_count(&s, rand() % 10 + 1);
-        printf("subgraph cluster_%d {\n", i + 1);
-        graphviz(s.root, i + 1);
-        printf("}\n");
+        node* l = ref_left_child(&s, &e);
+        printf("%"PRIu64"\n", l->key);
+
+        node* r = ref_right_child(&s, &e);
+        printf("%"PRIu64"\n", r->key);
+
+        printf("%"PRIu64"\n", ref_parent(&s, ref_right_child(&s, &e))->key);
+        printf("%"PRIu64"\n", ref_parent(&s, ref_left_child(&s, &e))->key);
+        printf("%p\n", ref_parent(&s, &e));
     }
-
-    printf("}\n");
-
-    node* l = ref_left_child(&e);
-    printf("%"PRIu64"\n", l->key);
-
-    node* r = ref_right_child(&e);
-    printf("%"PRIu64"\n", r->key);
-
-    printf("%"PRIu64"\n", ref_parent(ref_right_child(&e))->key);
-    printf("%"PRIu64"\n", ref_parent(ref_left_child(&e))->key);
-    printf("%p\n", ref_parent(&e));
 
     return 0;
 }
