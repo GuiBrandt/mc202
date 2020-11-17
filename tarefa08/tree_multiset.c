@@ -29,6 +29,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include <time.h>
 #include <stdlib.h>
@@ -78,7 +79,7 @@ typedef struct tree_multiset_node {
 
 
 void graphviz(node* root, int id) {
-    printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\"];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth);
+    printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\" fillcolor=%s];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth, root->color == RED ? "red" : "black");
 
     if (root->left) {
         graphviz(root->left, id);
@@ -561,19 +562,15 @@ node* ref_topmost(node* root) {
         return root;
     }
     
-    int relative_min_depth_left =
-        root->left->delta_ref_depth - root->left->delta_min_depth;
+    int relative_min_depth_left = root->left != NULL
+        ? root->left->delta_ref_depth - root->left->delta_min_depth
+        : INT_MAX;
 
-    int relative_min_depth_right =
-        root->right->delta_ref_depth - root->right->delta_min_depth;
+    int relative_min_depth_right = root->right != NULL
+        ? root->right->delta_ref_depth - root->right->delta_min_depth
+        : INT_MAX;
         
-    if (
-        root->left != NULL &&
-        (
-            root->right == NULL
-            || relative_min_depth_left < relative_min_depth_right 
-        )
-    ) {
+    if (relative_min_depth_left < relative_min_depth_right) {
         return ref_topmost(root->left);
 
     } else {
@@ -775,19 +772,14 @@ node* ref_parent(tree_multiset* multiset, node* v) {
         return v->right;
     }
 
-    int r_depth = 0;
-    node* r = find_splay_root(v, &r_depth);
+    int depth = -v->delta_ref_depth;
+    node* current = v->parent;
+    while (current != NULL) {
+        if (depth - current->delta_ref_depth == -1) {
+            return current;
+        }
 
-    int p_depth = r_depth;
-    node* l_p = left_parent(r, &p_depth);
-    if (l_p != NULL && p_depth == -1) {
-        return l_p;
-    }
-
-    p_depth = r_depth;
-    node* r_p = right_parent(r, &p_depth);
-    if (r_p != NULL && p_depth == -1) {
-        return r_p;
+        current = current->parent;
     }
 
     return NULL;
@@ -953,6 +945,8 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     assert(v != NULL);
     assert(p != NULL);
 
+    switch_and_maintain_root(multiset, p);
+
     // Garante que o filho direito de v é o preferido e que v é o filho
     // preferido de p.
     if (v->is_splay_root) {
@@ -968,9 +962,9 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     }
     assert(r == NULL || !r->is_splay_root);
 
-    switch_preferred(p);
+    switch_and_maintain_root(multiset, p);
     if (v->is_splay_root) {
-        switch_preferred(p);
+        switch_and_maintain_root(multiset, p);
     }
     assert(!v->is_splay_root);
 
@@ -987,7 +981,8 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     node* r_p = z != NULL && z->delta_ref_depth < 0 ? z->left : z;
 
     assert(
-        (r_p->parent == p && r_p->delta_ref_depth == 0)
+        r_p == NULL
+        || (r_p->parent == p && r_p->delta_ref_depth == 0)
         || (r_p->parent == z && r_p->delta_ref_depth == 2)
     );
 
@@ -1007,12 +1002,23 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
         maintain_min_depth(p);
     }
 
+    // Corrige as cores
+    color color_p = p->color;
+    v->color = color_p;
+    p->color = RED;
+
     // Recupera os caminhos preferidos originais
     switch_and_maintain_root(multiset, p);
     switch_and_maintain_root(multiset, v);
 }
 
 void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
+    assert(v != NULL);
+    assert(p != NULL);
+
+    // Garante que o filho direito de v é o preferido e que v é o filho
+    // preferido de p.
+    switch_and_maintain_root(multiset, p);
     if (v->is_splay_root) {
         switch_and_maintain_root(multiset, p);
     }
@@ -1022,25 +1028,31 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 
     node* l = p->right;
     if (l != NULL && l->is_splay_root) {
-        switch_preferred(v);
+        switch_and_maintain_root(multiset, v);
     }
     assert(l == NULL || !l->is_splay_root);
 
-    switch_preferred(p);
+    switch_and_maintain_root(multiset, p);
     if (v->is_splay_root) {
-        switch_preferred(p);
+        switch_and_maintain_root(multiset, p);
     }
     assert(!v->is_splay_root);
-    
+
+    // Modifica as profundidades dos nós apropriados de acordo com a rotação    
     add_ref_depth(v, -1);
     add_ref_depth(p, 1);
 
+    // Subárvore direita de v
     node* r_v = v->right;
+
     node* x = p->left;
+    
+    // Subárvore esquerda de p
     node* l_p = x != NULL && x->delta_ref_depth < 0 ? x->right : x;
 
     assert(
-        (l_p->parent == p && l_p->delta_ref_depth == 0)
+        l_p == NULL
+        || (l_p->parent == p && l_p->delta_ref_depth == 0)
         || (l_p->parent == x && l_p->delta_ref_depth == 2)
     );
 
@@ -1060,8 +1072,207 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
         maintain_min_depth(p);
     }
 
+    // Corrige as cores
+    color color_p = p->color;
+    v->color = color_p;
+    p->color = RED;
+
+    // Recupera os caminhos preferidos originais
     switch_and_maintain_root(multiset, p);
     switch_and_maintain_root(multiset, v);
+}
+
+void graphviz_ref(tree_multiset* multiset, node* root, int id) {
+    printf("\"ref_%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\" fillcolor=%s];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth, root->color == RED ? "red" : "black");
+
+    node* l = ref_left_child(multiset, root);
+    if (l) {
+        graphviz_ref(multiset, l, id);
+        printf("\"ref_%d_%"PRIu64"\" -- \"ref_%d_%"PRIu64"\"", id, root->key, id, l->key);
+        printf("\n");
+    }
+
+    node* r = ref_right_child(multiset, root);
+    if (r) {
+        graphviz_ref(multiset, r, id);
+        printf("\"ref_%d_%"PRIu64"\" -- \"ref_%d_%"PRIu64"\"", id, root->key, id, r->key);
+        printf("\n");
+    }
+}
+
+bool is_red(node* v) {
+    return v != NULL && v->color == RED;
+}
+
+bool is_black(node* v) {
+    return v == NULL || v->color == BLACK;
+}
+
+void virtual_rebalance(tree_multiset* multiset, node* root) {
+    node* current = root;
+
+    while (current != NULL) {
+        node* x = ref_left_child(multiset, current);
+        node* y = ref_right_child(multiset, current);
+
+        if (is_black(x) && is_red(y)) {
+            virtual_rotate_left(multiset, y, current);
+
+            x = current;
+            current = y;
+            y = ref_right_child(multiset, current);
+        }
+
+        if (is_red(x) && is_red(ref_left_child(multiset, x))) {
+            virtual_rotate_right(multiset, x, current);
+
+            y = current;
+            current = x;
+            x = ref_left_child(multiset, current);
+        }
+
+        if (is_red(x) && is_red(y)) {
+            x->color = BLACK;
+            y->color = BLACK;
+            current->color = RED;
+        }
+
+        node* parent = ref_parent(multiset, current);
+
+        if (parent == NULL) {
+            current->color = BLACK;
+            graphviz_ref(multiset, current, rand());
+            break;
+        }
+
+        current = parent;
+    }
+}
+
+node* make_node(element_t value) {
+    node* v = (node*) malloc(sizeof(node));
+
+    if (v == NULL) {
+        fprintf(stderr, "Erro fatal: Out of memory.");
+        exit(-1);
+    }
+
+    v->key = value;
+    v->count = 1;
+    v->left = NULL;
+    v->right = NULL;
+    v->parent = NULL;
+    v->is_splay_root = true;
+    v->delta_ref_depth = 1;
+    v->delta_min_depth = 0;
+    v->color = RED;
+    return v;
+}
+
+/**
+ * @brief Insere um valor em um multiset dado.
+ * 
+ * A complexidade dessa operação é garantida ser O(log n) (amortizado).
+ * 
+ * @param multiset o conjunto no qual inserir o valor.
+ * @param elem o valor a inserir.
+ * 
+ * @return um ponteiro para o multiset modificado. Pode ser diferente do
+ *         parâmetro fornecido, e pode ser NULL em caso de falha.
+ */
+void multiset_insert(tree_multiset* multiset, element_t elem) {
+    if (multiset->root == NULL) {
+        multiset->root = make_node(elem);
+        multiset->root->color = BLACK;
+        return;
+    }
+
+    node* current = multiset->root;
+    
+    node* x = NULL;
+    int x_depth = 0;
+
+    node* z = NULL;
+    int z_depth = 0;
+
+    int depth = 0;
+
+    while (current && current->key != elem) {
+        depth += current->delta_ref_depth;
+
+        if (elem < current->key) {
+            z = current;
+            z_depth = depth;
+            current = current->left;
+        } else {
+            x = current;
+            x_depth = depth;
+            current = current->right;
+        }
+    }
+
+    if (current != NULL) {
+        current->count++;
+        multi_splay(multiset, current);
+        return;
+    }
+
+    node* created = make_node(elem);
+    node* ref_parent;
+    
+    if (x != NULL && x_depth > z_depth) {
+        ref_parent = x;
+
+        multi_splay(multiset, x);
+        node* l = ref_left_child(multiset, x);
+
+        assert(x->right == z);
+
+        if (z != NULL) {
+            assert(z->left == NULL);
+
+            z->left = created;
+            created->parent = z;
+            created->delta_ref_depth = x_depth + 1 - z_depth;
+        } else {
+            assert(x->right == NULL);
+
+            x->right = created;
+            created->parent = x;
+        }
+
+        if (l == NULL || l->is_splay_root) {
+            created->is_splay_root = false;
+        }
+    } else {
+        assert(z != NULL);
+        assert(z_depth > x_depth);
+
+        ref_parent = z;
+        multi_splay(multiset, z);
+
+        node* r = ref_right_child(multiset, z);
+        assert(z->left == x);
+
+        if (x != NULL) {
+            assert(x->right == NULL);
+
+            x->right = created;
+            created->parent = x;
+            created->delta_ref_depth = z_depth + 1 - x_depth;
+        } else {
+
+            z->left = created;
+            created->parent = z;
+        }
+
+        if (r == NULL || r->is_splay_root) {
+            created->is_splay_root = false;
+        }
+    }
+
+    virtual_rebalance(multiset, ref_parent);
+    multi_splay(multiset, ref_parent);
 }
 
 void printtree(node* root) {
@@ -1079,7 +1290,7 @@ void printtree(node* root) {
 }
 
 int main() {
-    node a = { 1, 1, 0 };
+    /*node a = { 1, 1, 0 };
     node b = { 2, 1, 0 };
     node c = { 3, 1, 0 };
     node d = { 4, 1, 0 };
@@ -1181,7 +1392,23 @@ int main() {
 
     printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
     printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
-    printf("%"PRIu64"\n", ref_parent(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_parent(&s, &e)->key);*/
+
+    tree_multiset s = { NULL };
+
+    multiset_insert(&s, 2);
+    multiset_insert(&s, 3);
+    multiset_insert(&s, 8);
+    multiset_insert(&s, 55);
+    multiset_insert(&s, 64);
+    multiset_insert(&s, 21);
+    multiset_insert(&s, 91);
+    multiset_insert(&s, 5);
+    multiset_insert(&s, 6);
+    multiset_insert(&s, 1);
+    multiset_insert(&s, 9);
+
+    graphviz(s.root, 0);
 
     return 0;
 }
