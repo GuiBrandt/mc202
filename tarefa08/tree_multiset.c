@@ -646,7 +646,9 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
     switch_and_maintain_root(multiset, v);
     
-    node* t_r = ref_left_parent(v) == NULL ? v->right : v->right->left;
+    node* t_r = !v->right || v->right->delta_ref_depth < 0
+        ? v->right->left
+        : v->right;
     
     node* r = NULL;
 
@@ -859,6 +861,91 @@ void graphviz(node* root, int id) {
     }
 }
 
+void add_ref_depth(node* v, int s) {
+    v->delta_ref_depth += s;
+
+    if (v->left != NULL) {
+        v->left->delta_ref_depth -= s;
+    }
+    
+    if (v->right != NULL) {
+        v->right->delta_ref_depth -= s;
+    }
+
+    maintain_min_depth(v);
+}
+
+void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
+    switch_and_maintain_root(multiset, v);
+
+    node* r = p->left;
+
+    if (r != NULL && r->is_splay_root) {
+        switch_and_maintain_root(multiset, v);
+    }
+
+    switch_and_maintain_root(multiset, p);
+    if (v->is_splay_root) {
+        switch_and_maintain_root(multiset, p);
+    }
+
+    node* z = p->right;
+    
+    add_ref_depth(v, -1);
+    add_ref_depth(p, 1);
+
+    node* l_v = v->left;
+    node* r_p = z != NULL && z->delta_ref_depth < 0 ? z->left : z;
+
+    if (l_v != NULL) {
+        l_v->delta_ref_depth--;
+        maintain_min_depth(l_v->parent);
+    }
+
+    if (r_p != NULL) {
+        r_p->delta_ref_depth++;
+        maintain_min_depth(r_p->parent);
+    }
+
+    switch_and_maintain_root(multiset, p);
+    switch_and_maintain_root(multiset, v);
+}
+
+void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
+    switch_and_maintain_root(multiset, v);
+
+    node* l = p->right;
+
+    if (l != NULL && l->is_splay_root) {
+        switch_and_maintain_root(multiset, v);
+    }
+
+    switch_and_maintain_root(multiset, p);
+    if (v->is_splay_root) {
+        switch_and_maintain_root(multiset, p);
+    }
+
+    node* x = p->left;
+    
+    add_ref_depth(v, -1);
+    add_ref_depth(p, 1);
+
+    node* r_v = v->right;
+
+    node* l_p = x != NULL && x->delta_ref_depth < 0 ? x->right : x;
+
+    if (r_v != NULL) {
+        r_v->delta_ref_depth--;
+    }
+
+    if (l_p != NULL) {
+        l_p->delta_ref_depth++;
+    }
+
+    switch_and_maintain_root(multiset, p);
+    switch_and_maintain_root(multiset, v);
+}
+
 void printtree(node* root) {
     printf("(");
     
@@ -946,22 +1033,23 @@ int main() {
 
     tree_multiset s = { &e };
 
-    srand(time(NULL));
-    for (int i = 0; i < 1000; i++) { 
-        for (int i = 0; i < 1000; i++) {
-            multiset_count(&s, rand() % 10 + 1);
-        }
+    printf("%"PRIu64"\n", ref_left_child(&s, &h)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &h)->key);
+    printf("%"PRIu64"\n", ref_parent(&s, &h)->key);
 
-        node* l = ref_left_child(&s, &e);
-        printf("%"PRIu64"\n", l->key);
+    printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
+    printf("%p\n", ref_parent(&s, &e));
 
-        node* r = ref_right_child(&s, &e);
-        printf("%"PRIu64"\n", r->key);
+    virtual_rotate_left(&s, &h, &e);
+    
+    printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_parent(&s, &e)->key);
 
-        printf("%"PRIu64"\n", ref_parent(&s, ref_right_child(&s, &e))->key);
-        printf("%"PRIu64"\n", ref_parent(&s, ref_left_child(&s, &e))->key);
-        printf("%p\n", ref_parent(&s, &e));
-    }
+    printf("%"PRIu64"\n", ref_left_child(&s, &h)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &h)->key);
+    printf("%p\n", ref_parent(&s, &h));
 
     return 0;
 }
