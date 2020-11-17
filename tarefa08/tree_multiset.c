@@ -6,13 +6,20 @@
 
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa08.html
  * 
- * [WDS06] C. C. Wang, J. Derryberry, and D. D. Sleator.
- *         O(log log n)-competitive dynamic binary search trees.
- *         SODA, pp 374–383, 2006.
- *         Disponível em https://www.cs.cmu.edu/~chengwen/paper/MST.pdf
+ * ## Referências
  * 
- * Versão extendida do paper, também utilizada para referência, disponível em:
- * https://pdfs.semanticscholar.org/8006/044b0a69b9d1828711ce909f3201f49c7b06.pdf 
+ * [WDS06] C. C. Wang, J. Derryberry, e D. D. Sleator.
+ *         O(log log n)-competitive dynamic binary search trees.
+ *         SODA, pp. 374–383, 2006.
+ *         Disponível em https://www.cs.cmu.edu/~chengwen/paper/MST.pdf
+ *         Versão extendida do paper, também utilizada para referência,
+ *         disponível em https://pdfs.semanticscholar.org/8006/044b0a69b9d1828711ce909f3201f49c7b06.pdf.
+ * 
+ * [ST85] D. D. Sleator e R. E. Tarjan.
+ *        Self-Adjusting Binary Search Trees.
+ *        Journal of the Association for Computing Machinery, Vol. 32, No. 3,
+ *        pp. 652-686, 1985. 
+ *        Disponível em https://www.cs.cmu.edu/~sleator/papers/self-adjusting.pdf.
  */
 
 #include "tree_multiset.h"
@@ -69,15 +76,34 @@ typedef struct tree_multiset_node {
     color color : 1;
 } node;
 
+
+void graphviz(node* root, int id) {
+    printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\"];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth);
+
+    if (root->left) {
+        graphviz(root->left, id);
+        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->left->key);
+        if (root->left->is_splay_root) {
+            printf(" [style=dashed];");
+        }
+        printf("\n");
+    }
+
+    if (root->right) {
+        graphviz(root->right, id);
+        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->right->key);
+        if (root->right->is_splay_root) {
+            printf(" [style=dashed];");
+        }
+        printf("\n");
+    }
+}
+
 /**
  * @brief Corrige o valor auxiliar delta_min_depth para um nó após alguma
  *        rotação ou alteração no filho preferido.
  * 
- * Descrito em detalhes em [KM11], capítulo 17.
- * 
- * [KM11] Klein, Philip N.
- *        Flatworlds: Optimization Algorithms for Planar Graphs.
- *        Disponível em http://www.planarity.org.
+ * Descrito em [ST85], seção 6.
  * 
  * @param root nó envolvido na rotação.
  */
@@ -320,7 +346,7 @@ void splay(node* subject, node* root) {
 }
 
 /**
- * @brief Retorna o nó do predecessor (z) de um nó dado (y) seguindo o critério
+ * @brief Retorna o nó do predecessor (x) de um nó dado (y) seguindo o critério
  *        descrito na seção 3 de [WDS06].
  * 
  * @param y o nó dado.
@@ -328,8 +354,13 @@ void splay(node* subject, node* root) {
  * @return o nó do predecessor.
  */
 node* ref_left_parent(node* y) {
+    assert(y != NULL);
+
     node* current = y->left;
 
+    // delta_ref_depth - delta_min_depth = min_depth relativo a y, se for maior
+    // ou igual a 0, não existem nós com profundidade menor que y na subárvore,
+    // i.e. não existe pai esquerdo.
     if (
         current == NULL
         || current->is_splay_root
@@ -338,6 +369,12 @@ node* ref_left_parent(node* y) {
         return NULL;
     }
 
+    // Todos os cálculos com profundidade são feitos relativos à raíz da
+    // subárvore esquerda.
+    // A variável depth acumula o valor de profundidade relativa durante o
+    // percurso, de forma que depth - nó->delta_min_depth dá a profundidade
+    // mínima relativa de um nó (lembrando que delta_min_depth = ref_depth -
+    // min_ref_depth).
     int depth = 0;
     node* succ = NULL;
 
@@ -347,10 +384,18 @@ node* ref_left_parent(node* y) {
     ) {
         depth += current->delta_ref_depth;
 
-        if (depth < 0) {
+        if (depth < 0) { // Nó está acima de y
             succ = current;
         }
 
+        // Se não é possível avançar para a direita (porque não existe nó
+        // direito, o nó direito não faz parte da árvore splay ou o valor de
+        // min_depth é maior ou igual à profundidade de y), e se já encontramos
+        // algum nó que estivesse acima de y, aquele nó deve ser o pai esquerdo
+        // de y (pois deve ser o maior nó acima de y na árvore de referência).
+        // Caso não tenhamos encontrados algum nó acima de y, continuamos a
+        // busca no nó esquerdo, sem nos preocupar em diminuir o valor do
+        // sucessor encontrado.
         if (
             current->right == NULL
             || current->right->is_splay_root 
@@ -370,7 +415,7 @@ node* ref_left_parent(node* y) {
 }
 
 /**
- * @brief Retorna o nó do sucessor (x) de um nó dado (y) seguindo o critério
+ * @brief Retorna o nó do sucessor (z) de um nó dado (y) seguindo o critério
  *        descrito na seção 3 de [WDS06].
  * 
  * Simétrico a ref_left_parent.
@@ -380,6 +425,8 @@ node* ref_left_parent(node* y) {
  * @return o nó do sucessor.
  */
 node* ref_right_parent(node* y) {
+    assert(y != NULL);
+
     node* current = y->right;
 
     if (
@@ -426,24 +473,38 @@ node* ref_right_parent(node* y) {
  * 
  * Esse algoritmo é descrito na seção 3 de [WDS06].
  * 
- * @param y nó para o qual trocar o filho preferido.
+ * Após a execução da função, é garantido que y esteja na raíz de sua árvore
+ * splay, o nó à esquerda de y seja seu pai esquerdo (x) na árvore de
+ * referência (caso exista) e o nó à direita de y seja seu pai direito (z) na
+ * árvore de referência (caso exista).
+ * 
+ * Além disso, segue que a subárvore direita de x é a subárvore esquerda de y
+ * na árvore de referência e a subárvore esquerda de z é a subárvore direita de
+ * y na árvore de referência.
+ * 
+ * Se x ou z não existirem, então o a subárvore esquerda de y será a subárvore
+ * esquerda de y na árvore de referência e a subárvore direita de y será a
+ * subárvore direita de y na árvore de referência, respectivamente.
+ * 
+ * @param y nó para o qual trocar o filho preferido (!= NULL).
  */
 void switch_preferred(node* y) {
+    assert(y != NULL);
+
     // Fazemos splay de y até a raíz, para garantir que x e z são descendentes
     // de y.
     splay(y, NULL);
 
-    // Predecessor (x) da subárvore esquerda de y na árvore de referência (L)
+    // Predecessor (x) da subárvore esquerda de y (L) na árvore de referência
     node* x = ref_left_parent(y);
 
-    // Sucessor (z) da subárvore direita de y na árvore de referência (R)
+    // Sucessor (z) da subárvore direita de y (R) na árvore de referência
     node* z = ref_right_parent(y);
 
     // Subimos x e z até que sejam filhos de y, de forma que garantimos que a
     // direita de a é L e a subárvore esquerda de z é R.
     // Se x e/ou z não existem, então a subárvore esquerda de y deve ser L e
     // a subárvore direita de y deve ser R (seção 3.3.3 do paper extendido).
-
     node* l;
     if (x != NULL) {
         splay(x, y);
@@ -461,16 +522,19 @@ void switch_preferred(node* y) {
     }
 
     // Invariante: durante uma troca, um dos nós trocados deve ser um caminho
-    // preferido e outro não.
+    // preferido e o outro não.
     assert(!l || !r || l->is_splay_root != r->is_splay_root);
 
-    if (l != NULL && r != NULL) {
+    // Se algum dos nós não existe, não faz sentido trocar
+    if (l != NULL) {
         l->is_splay_root ^= true;
 
         if (z != NULL) {
             maintain_min_depth(z);
         }
+    }
 
+    if (r != NULL) {
         r->is_splay_root ^= true;
 
         if (x != NULL) {
@@ -490,16 +554,24 @@ void switch_preferred(node* y) {
 node* ref_topmost(node* root) {
     assert(root != NULL);
 
+    // Se delta_min_depth = 0, então ref_depth - min_ref_depth = 0, logo
+    // ref_depth = min_ref_depth, então a raíz deve ser o nó de profundidade
+    // mínima.
     if (root->delta_min_depth == 0) {
         return root;
     }
     
+    int relative_min_depth_left =
+        root->left->delta_ref_depth - root->left->delta_min_depth;
+
+    int relative_min_depth_right =
+        root->right->delta_ref_depth - root->right->delta_min_depth;
+        
     if (
         root->left != NULL &&
         (
             root->right == NULL
-            || root->left->delta_ref_depth - root->left->delta_min_depth
-            < root->right->delta_ref_depth - root->right->delta_min_depth
+            || relative_min_depth_left < relative_min_depth_right 
         )
     ) {
         return ref_topmost(root->left);
@@ -507,9 +579,8 @@ node* ref_topmost(node* root) {
     } else {
         assert(root->right != NULL);
         assert(
-            root->left == NULL ||
-            root->left->delta_ref_depth - root->left->delta_min_depth
-            < root->right->delta_ref_depth - root->right->delta_min_depth
+            root->left == NULL
+            || relative_min_depth_right < relative_min_depth_left
         );
         
         return ref_topmost(root->right);
@@ -520,6 +591,9 @@ node* ref_topmost(node* root) {
  * @brief Encontra a raíz da árvore splay de um nó dado.
  * 
  * @param v nó dado (!= NULL).
+ * @param depth ponteiro de saída para a profundidade relativa do nó
+ *              encontrado na árvore de referência. Deve ser previamente
+ *              incializado.
  * 
  * @return o nó raíz da árvore splay correspondente.
  */
@@ -541,6 +615,9 @@ node* find_splay_root(node* v, int* depth) {
  *        preferidos).
  * 
  * @param root nó raíz de uma árvore splay.
+ * @param depth ponteiro de saída para a profundidade relativa do nó
+ *              encontrado na árvore de referência. Deve ser previamente
+ *              incializado.
  * 
  * @return o nó do pai esquerdo do nó dado.
  */
@@ -567,6 +644,9 @@ node* left_parent(node* root, int* depth) {
  *        preferidos).
  * 
  * @param root nó raíz de uma árvore splay.
+ * @param depth ponteiro de saída para a profundidade relativa do nó
+ *              encontrado na árvore de referência. Deve ser previamente
+ *              incializado.
  * 
  * @return o nó do pai direito do nó dado.
  */
@@ -610,6 +690,7 @@ void switch_and_maintain_root(tree_multiset* multiset, node* y) {
  * 
  * Descrito na seção 5.2.2 do paper extendido.
  * 
+ * @param multiset o conjunto.
  * @param v nó dado (!= NULL).
  * 
  * @return o nó do filho esquerdo na árvore de referência.
@@ -638,6 +719,7 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
  * 
  * Descrito na seção 5.2.2 do paper extendido.
  * 
+ * @param multiset o conjunto.
  * @param v nó dado (!= NULL).
  * 
  * @return o nó do filho direito na árvore de referência.
@@ -668,6 +750,7 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
  * 
  * Descrito na seção 5.2.2 do paper extendido.
  * 
+ * @param multiset o conjunto.
  * @param v nó dado (!= NULL).
  * 
  * @return o nó do pai na árvore de referência.
@@ -716,6 +799,9 @@ node* ref_parent(tree_multiset* multiset, node* v) {
  * 
  * @param key chave do valor buscado.
  * @param splay_root raíz da árvore splay.
+ * @param depth ponteiro de saída para a profundidade relativa do nó
+ *              encontrado na árvore de referência. Deve ser previamente
+ *              incializado.
  * 
  * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
@@ -749,6 +835,9 @@ node* predecessor_on_splay(element_t key, node* splay_root, int* depth) {
  * 
  * @param key chave do valor buscado.
  * @param splay_root raíz da árvore splay.
+ * @param depth ponteiro de saída para a profundidade relativa do nó
+ *              encontrado na árvore de referência. Deve ser previamente
+ *              incializado.
  * 
  * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
@@ -839,28 +928,6 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
     return current->count;
 }
 
-void graphviz(node* root, int id) {
-    printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\"];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth);
-
-    if (root->left) {
-        graphviz(root->left, id);
-        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->left->key);
-        if (root->left->is_splay_root) {
-            printf(" [style=dashed];");
-        }
-        printf("\n");
-    }
-
-    if (root->right) {
-        graphviz(root->right, id);
-        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->right->key);
-        if (root->right->is_splay_root) {
-            printf(" [style=dashed];");
-        }
-        printf("\n");
-    }
-}
-
 void add_ref_depth(node* v, int s) {
     v->delta_ref_depth += s;
 
@@ -875,7 +942,19 @@ void add_ref_depth(node* v, int s) {
     maintain_min_depth(v);
 }
 
+/**
+ * @brief Executa uma rotação virtual para a direita.
+ * 
+ * @param multiset o conjunto.
+ * @param v o filho esquerdo de p na árvore de referência.
+ * @param p o nó sendo rotacionado na árvore de referência.
+ */
 void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
+    assert(v != NULL);
+    assert(p != NULL);
+
+    // Garante que o filho direito de v é o preferido e que v é o filho
+    // preferido de p.
     if (v->is_splay_root) {
         switch_and_maintain_root(multiset, p);
     }
@@ -894,17 +973,22 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
         switch_preferred(p);
     }
     assert(!v->is_splay_root);
-    
+
+    // Modifica as profundidades dos nós apropriados de acordo com a rotação    
     add_ref_depth(v, -1);
     add_ref_depth(p, 1);
 
+    // Subárvore esquerda de v
     node* l_v = v->left;
+
     node* z = p->right;
-    node* r_p = z != NULL && z->delta_ref_depth < 0 ? z->right : z;
+    
+    // Subárvore direita de p
+    node* r_p = z != NULL && z->delta_ref_depth < 0 ? z->left : z;
 
     assert(
         (r_p->parent == p && r_p->delta_ref_depth == 0)
-        || (r_p->parent == z && r_p->delta_ref_depth == 1)
+        || (r_p->parent == z && r_p->delta_ref_depth == 2)
     );
 
     if (l_v != NULL) {
@@ -923,8 +1007,9 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
         maintain_min_depth(p);
     }
 
-    switch_and_maintain_root(multiset, v);
+    // Recupera os caminhos preferidos originais
     switch_and_maintain_root(multiset, p);
+    switch_and_maintain_root(multiset, v);
 }
 
 void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
@@ -956,7 +1041,7 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 
     assert(
         (l_p->parent == p && l_p->delta_ref_depth == 0)
-        || (l_p->parent == x && l_p->delta_ref_depth == 1)
+        || (l_p->parent == x && l_p->delta_ref_depth == 2)
     );
 
     if (r_v != NULL) {
@@ -975,8 +1060,8 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
         maintain_min_depth(p);
     }
 
-    switch_and_maintain_root(multiset, v);
     switch_and_maintain_root(multiset, p);
+    switch_and_maintain_root(multiset, v);
 }
 
 void printtree(node* root) {
@@ -1066,23 +1151,37 @@ int main() {
 
     tree_multiset s = { &e };
 
-    printf("%p\n", ref_left_child(&s, &a));
-    printf("%p\n", ref_right_child(&s, &a));
-    printf("%"PRIu64"\n", ref_parent(&s, &a)->key);
+    printf("%p\n", ref_left_child(&s, &c));
+    printf("%p\n", ref_right_child(&s, &c));
+    printf("%"PRIu64"\n", ref_parent(&s, &c)->key);
 
     printf("%"PRIu64"\n", ref_left_child(&s, &b)->key);
     printf("%"PRIu64"\n", ref_right_child(&s, &b)->key);
     printf("%"PRIu64"\n", ref_parent(&s, &b)->key);
 
-    virtual_rotate_right(&s, &a, &b);
+    virtual_rotate_left(&s, &c, &b);
     
-    printf("%p\n", ref_left_child(&s, &a));
-    printf("%"PRIu64"\n", ref_right_child(&s, &a)->key);
-    printf("%"PRIu64"\n", ref_parent(&s, &a)->key);
+    printf("%"PRIu64"\n", ref_left_child(&s, &c)->key);
+    printf("%p\n", ref_right_child(&s, &c));
+    printf("%"PRIu64"\n", ref_parent(&s, &c)->key);
 
-    printf("%p\n", ref_left_child(&s, &b));
-    printf("%"PRIu64"\n", ref_right_child(&s, &b)->key);
+    printf("%"PRIu64"\n", ref_left_child(&s, &b)->key);
+    printf("%p\n", ref_right_child(&s, &b));
     printf("%"PRIu64"\n", ref_parent(&s, &b)->key);
+
+    printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
+    printf("%p\n", ref_parent(&s, &e));
+
+    virtual_rotate_right(&s, &c, &e);
+    
+    printf("%"PRIu64"\n", ref_left_child(&s, &c)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &c)->key);
+    printf("%p\n", ref_parent(&s, &c));
+
+    printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
+    printf("%"PRIu64"\n", ref_parent(&s, &e)->key);
 
     return 0;
 }
