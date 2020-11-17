@@ -12,13 +12,19 @@
  *         Disponível em https://www.cs.cmu.edu/~chengwen/paper/MST.pdf
  * 
  * Versão extendida do paper, também utilizada para referência, disponível em:
- * https://pdfs.semanticscholar.org/8006/044b0a69b9d1828711ce909f3201f49c7b06.pdf
+ * https://pdfs.semanticscholar.org/8006/044b0a69b9d1828711ce909f3201f49c7b06.pdf 
  */
 
 #include "tree_multiset.h"
 
 #include <stdbool.h>
 #include <assert.h>
+
+#include <stdio.h>
+#include <inttypes.h>
+
+#include <time.h>
+#include <stdlib.h>
 
 /**
  * @brief Enumeração de cores de nós da árvore de referência. 
@@ -46,13 +52,13 @@ typedef struct tree_multiset_node {
     // Nó pai (NULL para a raíz)
     struct tree_multiset_node* parent;
 
-    // Profundidade do nó na árvore de referência.
-    // A árvore de referência é uma árvore binária de busca balanceada
-    // imaginária com os nós da árvore multi-splay. 
-    size_t ref_depth;
+    // Diferença de profundidade do nó na árvore de referência em relação ao
+    // pai na árvore multi-splay.
+    int delta_ref_depth;
 
-    // Valor de ref_depth mínimo na subárvore-splay do nó.
-    size_t min_depth;
+    // Diferença de valor de ref_depth mínimo na subárvore-splay do nó em
+    // relação ao pai.
+    int delta_min_depth;
 
     // Determina se a conexão com o nó pai é tracejada (true) ou sólida
     // (false). Uma conexão tracejada significa que este nó é raíz de uma
@@ -64,31 +70,37 @@ typedef struct tree_multiset_node {
 } node;
 
 /**
- * @brief Mantém o valor auxiliar min_depth para um nó após alguma rotação ou
- *        alteração no filho preferido.
+ * @brief Corrige o valor auxiliar delta_min_depth para um nó após alguma
+ *        rotação ou alteração no filho preferido.
+ * 
+ * Descrito em detalhes em [KM11], capítulo 17.
+ * 
+ * [KM11] Klein, Philip N.
+ *        Flatworlds: Optimization Algorithms for Planar Graphs.
+ *        Disponível em http://www.planarity.org.
  * 
  * @param root nó envolvido na rotação.
  */
 inline static void maintain_min_depth(node* root) {
-    size_t min = root->ref_depth;
+    int max = 0;
 
-    if (
-        root->left != NULL
-        && !root->left->is_splay_root
-        && root->left->min_depth < min
-    ) {
-        min = root->left->min_depth;        
+    if (root->left != NULL && !root->left->is_splay_root) {
+        int d = root->left->delta_min_depth - root->left->delta_ref_depth;
+        
+        if (d > max) {
+            max = d;
+        }
     }
 
-    if (
-        root->right != NULL
-        && !root->right->is_splay_root
-        && root->right->min_depth < min
-    ) {
-        min = root->right->min_depth;
+    if (root->right != NULL && !root->right->is_splay_root) {
+        int d = root->right->delta_min_depth - root->right->delta_ref_depth;
+
+        if (d > max) {
+            max = d;
+        }
     }
 
-    root->min_depth = min;
+    root->delta_min_depth = max;
 }
 
 /**
@@ -110,16 +122,19 @@ inline static void maintain_min_depth(node* root) {
  * @param root o nó sendo rotacionado.
  */
 inline static void rotate_left(node* p) {
+    assert(p != NULL);
     assert(p->right != NULL);
 
     node* o = p->parent;
     node* q = p->right;
     node* y = q->left;
+
+    assert(y == NULL || !q->is_splay_root || y->is_splay_root);
     
     q->left = p;
     p->right = y;
 
-    if (o) {
+    if (o != NULL) {
         if (o->right == p) {
             o->right = q;
         } else {
@@ -127,7 +142,7 @@ inline static void rotate_left(node* p) {
         }
     }
 
-    if (y) {
+    if (y != NULL) {
         y->parent = p;
     }
 
@@ -138,6 +153,15 @@ inline static void rotate_left(node* p) {
     p->is_splay_root ^= q->is_splay_root;
     q->is_splay_root ^= p->is_splay_root;
     p->is_splay_root ^= q->is_splay_root;
+
+    // Corrige os valores de delta_ref_depth
+    int delta_q = q->delta_ref_depth;
+    q->delta_ref_depth += p->delta_ref_depth;
+    p->delta_ref_depth = -delta_q;
+
+    if (y != NULL) {
+        y->delta_ref_depth += delta_q;
+    }
 
     maintain_min_depth(p);
     maintain_min_depth(q);
@@ -162,16 +186,19 @@ inline static void rotate_left(node* p) {
  * @param root o nó sendo rotacionado.
  */
 inline static void rotate_right(node* p) {
+    assert(p != NULL);
     assert(p->left != NULL);
 
     node* o = p->parent;
     node* q = p->left;
     node* y = q->right;
 
+    assert(y == NULL || !q->is_splay_root || y->is_splay_root);
+
     q->right = p;
     p->left = y;
 
-    if (o) {
+    if (o != NULL) {
         if (o->right == p) {
             o->right = q;
         } else {
@@ -182,7 +209,7 @@ inline static void rotate_right(node* p) {
     p->parent = q;
     q->parent = o;
 
-    if (y) {
+    if (y != NULL) {
         y->parent = p;
     }
 
@@ -190,6 +217,15 @@ inline static void rotate_right(node* p) {
     p->is_splay_root ^= q->is_splay_root;
     q->is_splay_root ^= p->is_splay_root;
     p->is_splay_root ^= q->is_splay_root;
+
+    // Corrige os valores de delta_ref_depth
+    int delta_q = q->delta_ref_depth;
+    q->delta_ref_depth += p->delta_ref_depth;
+    p->delta_ref_depth = -delta_q;
+
+    if (y != NULL) {
+        y->delta_ref_depth += delta_q;
+    }
 
     maintain_min_depth(p);
     maintain_min_depth(q);
@@ -293,28 +329,34 @@ void splay(node* subject, node* root) {
  */
 node* ref_left_parent(node* y) {
     node* current = y->left;
-    int depth = y->ref_depth;
 
     if (
         current == NULL
         || current->is_splay_root
-        || current->min_depth >= depth) {
+        || current->delta_ref_depth - current->delta_min_depth >= 0
+    ) {
         return NULL;
     }
 
-    node* pred = NULL;
+    int depth = 0;
+    node* succ = NULL;
 
-    while (current && current->min_depth < depth) {
-        if (current->ref_depth < depth) {
-            pred = current;
+    while (
+        current
+        && (depth + current->delta_ref_depth) - current->delta_min_depth < 0
+    ) {
+        depth += current->delta_ref_depth;
+
+        if (depth < 0) {
+            succ = current;
         }
 
         if (
             current->right == NULL
-            || current->right->is_splay_root
-            || current->right->min_depth >= depth
+            || current->right->is_splay_root 
+            || (depth + current->right->delta_ref_depth) - current->right->delta_min_depth >= 0
         ) {
-            if (pred == NULL) {
+            if (succ == NULL) {
                 current = current->left;
             } else {
                 break;
@@ -324,7 +366,7 @@ node* ref_left_parent(node* y) {
         }
     }
 
-    return pred;
+    return succ;
 }
 
 /**
@@ -339,27 +381,32 @@ node* ref_left_parent(node* y) {
  */
 node* ref_right_parent(node* y) {
     node* current = y->right;
-    int depth = y->ref_depth;
 
     if (
         current == NULL
         || current->is_splay_root
-        || current->min_depth >= depth
+        || current->delta_ref_depth - current->delta_min_depth >= 0
     ) {
         return NULL;
     }
 
+    int depth = 0;
     node* succ = NULL;
 
-    while (current && current->min_depth < depth) {
-        if (current->ref_depth < depth) {
+    while (
+        current
+        && (depth + current->delta_ref_depth) - current->delta_min_depth < 0
+    ) {
+        depth += current->delta_ref_depth;
+
+        if (depth < 0) {
             succ = current;
         }
 
         if (
             current->left == NULL
             || current->left->is_splay_root 
-            || current->left->min_depth >= depth
+            || (depth + current->left->delta_ref_depth) - current->left->delta_min_depth >= 0
         ) {
             if (succ == NULL) {
                 current = current->right;
@@ -420,7 +467,7 @@ void switch_preferred(node* y) {
     if (l != NULL) {
         l->is_splay_root ^= true;
 
-        if (z) {
+        if (z != NULL) {
             maintain_min_depth(z);
         }
     }
@@ -428,7 +475,7 @@ void switch_preferred(node* y) {
     if (r != NULL) {
         r->is_splay_root ^= true;
 
-        if (x) {
+        if (x != NULL) {
             maintain_min_depth(x);
         }
     }
@@ -508,18 +555,27 @@ node* successor_on_splay(element_t key, node* splay_root) {
 node* ref_topmost(node* root) {
     assert(root != NULL);
 
-    if (root->min_depth == root->ref_depth) {
+    if (root->delta_min_depth == 0) {
         return root;
     }
     
     if (
         root->left != NULL &&
-        (root->right == NULL || root->left->min_depth < root->right->min_depth)
+        (
+            root->right == NULL
+            || root->left->delta_ref_depth - root->left->delta_min_depth
+            < root->right->delta_ref_depth - root->right->delta_min_depth
+        )
     ) {
         return ref_topmost(root->left);
+
     } else {
         assert(root->right != NULL);
-        assert(root->right->min_depth < root->ref_depth);
+        assert(
+            root->left == NULL ||
+            root->left->delta_ref_depth - root->left->delta_min_depth
+            < root->right->delta_ref_depth - root->right->delta_min_depth
+        );
         
         return ref_topmost(root->right);
     }
@@ -588,12 +644,13 @@ node* ref_right_child(node* v) {
  * 
  * @return o nó raíz da árvore splay correspondente.
  */
-node* splay_root(node* v) {
+node* find_splay_root(node* v, int* depth) {
     assert(v != NULL);
 
     node* r = v;
 
     while (!r->is_splay_root) {
+        *depth -= r->delta_ref_depth;
         r = r->parent;
     }
 
@@ -608,12 +665,14 @@ node* splay_root(node* v) {
  * 
  * @return o nó do pai esquerdo do nó dado.
  */
-node* left_parent(node* root) {
+node* left_parent(node* root, int* depth) {
     assert(root != NULL);
 
     node* current = root;
 
     while (current->parent != NULL) {
+        *depth -= current->delta_ref_depth;
+
         if (current->parent->right == current) {
             return current->parent;
         }
@@ -632,10 +691,12 @@ node* left_parent(node* root) {
  * 
  * @return o nó do pai direito do nó dado.
  */
-node* right_parent(node* root) {
+node* right_parent(node* root, int* depth) {
     node* current = root;
 
     while (current->parent != NULL) {
+        *depth -= current->delta_ref_depth;
+
         if (current->parent->left == current) {
             return current->parent;
         }
@@ -659,12 +720,10 @@ node* ref_parent(node* v) {
     switch_preferred(v);
     switch_preferred(v);
 
-    size_t parent_depth = v->ref_depth - 1;
-
     if (
         v->left != NULL
         && !v->left->is_splay_root
-        && v->left->ref_depth == parent_depth
+        && v->left->delta_ref_depth == -1
     ) {
         return v->left;
     }
@@ -672,20 +731,23 @@ node* ref_parent(node* v) {
     if (
         v->right != NULL
         && !v->right->is_splay_root
-        && v->right->ref_depth == parent_depth
+        && v->right->delta_ref_depth == -1
     ) {
         return v->right;
     }
 
-    node* r = splay_root(v);
+    int r_depth = 0;
+    node* r = find_splay_root(v, &r_depth);
 
-    node* l_p = left_parent(r);
-    if (l_p != NULL && l_p->ref_depth == parent_depth) {
+    int p_depth = r_depth;
+    node* l_p = left_parent(r, &p_depth);
+    if (l_p != NULL && p_depth == -1) {
         return l_p;
     }
 
-    node* r_p = right_parent(r);
-    if (r_p != NULL && r_p->ref_depth == parent_depth) {
+    p_depth = r_depth;
+    node* r_p = right_parent(r, &p_depth);
+    if (r_p != NULL && p_depth == -1) {
         return r_p;
     }
 
@@ -725,7 +787,7 @@ void multi_splay(tree_multiset* multiset, node* found) {
         backtrack != NULL && backtrack->parent != NULL;
         backtrack = backtrack->parent
     ) {
-        // Queremos ajustar apenas as aretas não-preferidas
+        // Queremos ajustar apenas as arestas não-preferidas
         if (!backtrack->is_splay_root) {
             continue;
         }
@@ -733,7 +795,7 @@ void multi_splay(tree_multiset* multiset, node* found) {
         node* v = predecessor_on_splay(found->key, backtrack->parent);
         node* w = successor_on_splay(found->key, backtrack->parent);
 
-        if (v != NULL && (w == NULL || v->ref_depth < w->ref_depth)) {
+        if (v != NULL && (w == NULL || v->delta_ref_depth < w->delta_ref_depth)) {
             switch_and_maintain_root(multiset, v);
         } else if (w != NULL) {
             switch_and_maintain_root(multiset, w);
@@ -767,12 +829,6 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
 
     return current->count;
 }
-
-#include <stdio.h>
-#include <inttypes.h>
-
-#include <time.h>
-#include <stdlib.h>
 
 void graphviz(node* root, int id) {
     printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64"\"];\n", id, root->key, root->key);
@@ -824,62 +880,62 @@ int main() {
 
     a.parent = &b;
     a.is_splay_root = false;
-    a.min_depth = 3;
-    a.ref_depth = 3;
+    a.delta_min_depth = 0;
+    a.delta_ref_depth = 1;
 
     b.parent = &e;
     b.left = &a;
     b.right = &c;
     b.is_splay_root = false;
-    b.min_depth = 2;
-    b.ref_depth = 2;
+    b.delta_min_depth = 0;
+    b.delta_ref_depth = 1;
     
     c.parent = &b;
     c.right = &d;
     c.is_splay_root = true;
-    c.min_depth = 3;
-    c.ref_depth = 3;
+    c.delta_min_depth = 0;
+    c.delta_ref_depth = 1;
 
     d.parent = &c;
     d.is_splay_root = false;
-    d.min_depth = 4;
-    d.ref_depth = 4;
+    d.delta_min_depth = 0;
+    d.delta_ref_depth = 1;
 
     e.parent = NULL;
     e.left = &b;
     e.right = &h;
     e.is_splay_root = true;
-    e.min_depth = 1;
-    e.ref_depth = 1;
+    e.delta_min_depth = 0;
+    e.delta_ref_depth = 1;
     
     f.parent = &h;
     f.right = &g;
     f.is_splay_root = false;
-    f.min_depth = 3;
-    f.ref_depth = 3;
+    f.delta_min_depth = 0;
+    f.delta_ref_depth = 1;
 
     g.parent = &f;
     g.is_splay_root = false;
-    g.min_depth = 4;
-    g.ref_depth = 4;
+    g.delta_min_depth = 0;
+    g.delta_ref_depth = 1;
     
     h.parent = &e;
     h.left = &f;
     h.right = &i;
     h.is_splay_root = true;
-    h.min_depth = 2;
-    h.ref_depth = 2;
+    h.delta_min_depth = 0;
+    h.delta_ref_depth = 1;
     
     i.parent = &h;
     i.right = &j;
     i.is_splay_root = true;
-    i.min_depth = 3;
-    i.ref_depth = 3;
+    i.delta_min_depth = 0;
+    i.delta_ref_depth = 1;
     
     j.parent = &i;
     j.is_splay_root = false;
-    j.min_depth = 4;
-    j.ref_depth = 4;
+    j.delta_min_depth = 0;
+    j.delta_ref_depth = 1;
 
     tree_multiset s = { &e };
 
