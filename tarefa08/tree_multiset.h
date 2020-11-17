@@ -41,7 +41,7 @@ tree_multiset* multiset_init() __attribute_malloc__;
  * @return um ponteiro para o multiset modificado. Pode ser diferente do
  *         parâmetro fornecido, e pode ser NULL em caso de falha.
  */
-tree_multiset* multiset_insert(tree_multiset* multiset, element_t elem);
+void multiset_insert(tree_multiset* multiset, element_t elem);
 
 /**
  * @brief Conta o número de ocorrências de um valor em um multiset dado.
