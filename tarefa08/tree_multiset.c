@@ -751,6 +751,7 @@ node* ref_parent(tree_multiset* multiset, node* v) {
  * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
+// TODO: refatorar
 node* predecessor_on_splay(node* root, element_t key, int* depth) {
     if (root == NULL) {
         return NULL;
@@ -805,6 +806,7 @@ node* predecessor_on_splay(node* root, element_t key, int* depth) {
  * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
+// TODO: refatorar
 node* successor_on_splay(node* root, element_t key, int* depth) {
     if (root == NULL) {
         return NULL;
@@ -1287,7 +1289,8 @@ void virtual_rebalance(tree_multiset* multiset, node* start) {
  * @brief Constrói um nó-folha com a chave dada e count = 1.
  * 
  * @param key chave do nó.
- * @return 
+ * 
+ * @return ponteiro para o nó alocado.
  */
 node* make_node(element_t key) {
     node* v = (node*) malloc(sizeof(node));
@@ -1310,49 +1313,79 @@ node* make_node(element_t key) {
     return v;
 }
 
-void multiset_insert(tree_multiset* multiset, element_t elem) {
-    if (multiset->root == NULL) {
-        multiset->root = make_node(elem);
-        multiset->root->color = BLACK;
-        return;
-    }
-
-    node* current = multiset->root;
+/**
+ * @brief Busca por um elemento mantendo o pai esquerdo e direito, bem como
+ *        suas profundidades na árvore de referência.
+ * 
+ * @param root raíz a partir da qual buscar.
+ * @param key elemento sendo procurado.
+ * @param x ponteiro de saída para o nó do pai esquerdo.
+ * @param x_depth ponteiro de saída para a profundidade do pai
+ *                          esquerdo.
+ * @param z idem pred para o pai direito.
+ * @param z_depth idem x_depth para o pai direito.
+ * 
+ * @return um ponteiro para o nó encontrado com a chave buscada, ou NULL caso
+ *         ele não exista na árvore.
+ */
+inline static node* find_with_parents(
+    node* root,
+    element_t key,
+    node** x,
+    int* x_depth,
+    node** z,
+    int* z_depth
+) {
+    node* current = root;
     
-    node* x = NULL;
-    int x_depth = 0;
+    *x = NULL;
+    *x_depth = 0;
 
-    node* z = NULL;
-    int z_depth = 0;
+    *z = NULL;
+    *z_depth = 0;
 
     int depth = 0;
-
-    while (current && current->key != elem) {
+    while (current && current->key != key) {
         depth += current->delta_ref_depth;
 
-        if (elem < current->key) {
-            z = current;
-            z_depth = depth;
+        if (key < current->key) {
+            *z = current;
+            *z_depth = depth;
             current = current->left;
         } else {
-            x = current;
-            x_depth = depth;
+            *x = current;
+            *x_depth = depth;
             current = current->right;
         }
     }
 
-    if (current != NULL) {
-        current->count++;
-        multi_splay(multiset, current->key);
-        return;
-    }
+    return current;
+}
 
-    node* created = make_node(elem);
-    node* ref_parent;
+/**
+ * @brief Insere um nó na MST dados seus pais direito e equerdo.
+ * 
+ * @param multiset a MST.
+ * @param x o pai esquerdo do nó.
+ * @param x_depth a profundidade de x na árvore de referência.
+ * @param z o pai direito do nó.
+ * @param z_depth a profundidade de z na árvore de referência.
+ * @param created nó a ser inserido.
+ */
+inline static void insert_with_parents(
+    tree_multiset* multiset,
+    node* x,
+    int x_depth,
+    node* z,
+    int z_depth,
+    node* created
+) {
+    node* parent;
     
     if (x != NULL && x_depth > z_depth) {
-        ref_parent = x;
+        parent = x;
         multi_splay(multiset, x->key);
+
         assert(x->right == z);
 
         node* l = ref_left_child(multiset, x);
@@ -1369,16 +1402,13 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
             x->right = created;
             created->parent = x;
         }
-
-        if (l == NULL || l->is_splay_root) {
-            created->is_splay_root = false;
-        }
     } else {
         assert(z != NULL);
         assert(z_depth > x_depth);
 
-        ref_parent = z;
+        parent = z;
         multi_splay(multiset, z->key);
+
         assert(z->left == x);
 
         node* r = ref_right_child(multiset, z);
@@ -1390,45 +1420,43 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
             created->parent = x;
             created->delta_ref_depth = z_depth + 1 - x_depth;
         } else {
+            assert(z->left == NULL);
+
             z->left = created;
             created->parent = z;
         }
-
-        if (r == NULL || r->is_splay_root) {
-            created->is_splay_root = false;
-        }
     }
 
-    virtual_rebalance(multiset, ref_parent);
+    virtual_rebalance(multiset, parent);
+}
+
+void multiset_insert(tree_multiset* multiset, element_t key) {
+    if (multiset->root == NULL) {
+        multiset->root = make_node(key);
+        multiset->root->color = BLACK;
+        return;
+    }
+
+    node *x, *z;
+    int x_depth, z_depth;
+
+    node* found = find_with_parents(
+        multiset->root,
+        key,
+        &x, &x_depth,
+        &z, &z_depth
+    );
+
+    if (found != NULL) {
+        found->count++;
+        multi_splay(multiset, found->key);
+        return;
+    }
+
+    node* created = make_node(key);
+    
+    insert_with_parents(multiset, x, x_depth, z, z_depth, created);
     multi_splay(multiset, created->key);
-}
-
-void printtree(node* root) {
-    printf("(");
-    
-    if (root->left)
-        printtree(root->left);
-
-    printf(" %"PRIu64" ", root->key);
-    
-    if (root->right)
-        printtree(root->right);
-
-    printf(")");
-}
-
-node* ref_root(tree_multiset* multiset) {
-    node* current = multiset->root;
-    
-    for (;;) {
-        node* parent = ref_parent(multiset, current);
-        if (parent == NULL) {
-            break;
-        }
-        current = parent;
-    }
-
-    return current;
 }
 
 int main() {

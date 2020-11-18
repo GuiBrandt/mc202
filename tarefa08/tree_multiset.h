@@ -36,12 +36,12 @@ tree_multiset* multiset_init() __attribute_malloc__;
  * A complexidade dessa operação é garantida ser O(log n) amortizado.
  * 
  * @param multiset o conjunto no qual inserir o valor.
- * @param elem o valor a inserir.
+ * @param key o valor a inserir.
  * 
  * @return um ponteiro para o multiset modificado. Pode ser diferente do
  *         parâmetro fornecido, e pode ser NULL em caso de falha.
  */
-void multiset_insert(tree_multiset* multiset, element_t elem);
+void multiset_insert(tree_multiset* multiset, element_t key);
 
 /**
  * @brief Conta o número de ocorrências de um valor em um multiset dado.
@@ -49,11 +49,11 @@ void multiset_insert(tree_multiset* multiset, element_t elem);
  * A complexidade dessa operação é garantida ser O(log n) amortizado.
  * 
  * @param multiset o conjunto em questão.
- * @param elem o elemento sendo contado.
+ * @param key o elemento sendo contado.
  * 
  * @return o número de ocorrências do valor no multiset (0 caso não exista).
  */
-size_t multiset_count(tree_multiset* multiset, element_t elem);
+size_t multiset_count(tree_multiset* multiset, element_t key);
 
 /**
  * @brief Libera os recursos alocados para um multiset.
