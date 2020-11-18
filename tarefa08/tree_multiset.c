@@ -37,7 +37,7 @@
 /**
  * @brief Enumeração de cores de nós da árvore de referência. 
  */
-typedef enum {
+typedef enum color {
     RED, BLACK
 } color;
 
@@ -76,29 +76,6 @@ typedef struct tree_multiset_node {
     // Cor do nó na árvore de referência
     color color : 1;
 } node;
-
-
-void graphviz(node* root, int id) {
-    printf("\"%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\" fillcolor=%s];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth, root->color == RED ? "red" : "black");
-
-    if (root->left) {
-        graphviz(root->left, id);
-        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->left->key);
-        if (root->left->is_splay_root) {
-            printf(" [style=dashed];");
-        }
-        printf("\n");
-    }
-
-    if (root->right) {
-        graphviz(root->right, id);
-        printf("\"%d_%"PRIu64"\" -- \"%d_%"PRIu64"\"", id, root->key, id, root->right->key);
-        if (root->right->is_splay_root) {
-            printf(" [style=dashed];");
-        }
-        printf("\n");
-    }
-}
 
 /**
  * @brief Corrige o valor auxiliar delta_min_depth para um nó após alguma
@@ -981,35 +958,50 @@ node* successor_on_splay(element_t key, node* root, int* depth) {
     return NULL;
 }
 
+#define SWITCH_STACK_MAX 2048
 
-void graphviz_ref(tree_multiset* multiset, node* root, int id) {
-    printf("\"ref_%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\" fillcolor=%s];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth, root->color == RED ? "red" : "black");
-
-    //printf("\"ref_%d_%"PRIu64"\" -- \"%d_%"PRIu64"\" [style=dotted];\n", id, root->key, id, root->key);
-
-    node* l = ref_left_child(multiset, root);
-    node* r = ref_right_child(multiset, root);
-
-    switch_and_maintain_root(multiset, root);
-    switch_and_maintain_root(multiset, root);
-
-    if (l) {
-        graphviz_ref(multiset, l, id);
-        printf("\"ref_%d_%"PRIu64"\" -- \"ref_%d_%"PRIu64"\"", id, root->key, id, l->key);
-        if (l->is_splay_root) {
-            printf(" [style=dashed]");
-        }
-        printf("\n");
+node* build_switch_stack(node* root, element_t key, node* stack[], int* stack_p) {
+    *stack_p = 0;
+    
+    if (root == NULL || root->key == key) {
+        *stack_p = -1;
+        return root;
     }
 
-    if (r) {
-        graphviz_ref(multiset, r, id);
-        printf("\"ref_%d_%"PRIu64"\" -- \"ref_%d_%"PRIu64"\"", id, root->key, id, r->key);
-        if (r->is_splay_root) {
-            printf(" [style=dashed]");
+    node* current = root;
+    
+    while (current != NULL && current->key != key) {
+        assert(*stack_p < SWITCH_STACK_MAX);
+
+        int v_depth = 0;
+        node* v = predecessor_on_splay(key, current, &v_depth);
+
+        int w_depth = 0;
+        node* w = successor_on_splay(key, current, &w_depth);
+
+        if (v != NULL && (w == NULL || v_depth > w_depth)) {
+            stack[*stack_p] = v;
+        } else {
+            assert(w != NULL);
+            stack[*stack_p] = w;
         }
-        printf("\n");
+
+        do {
+            if (key < current->key) {
+                current = current->left;
+            } else {
+                current = current->right;
+            }
+        } while (current != NULL && current->key != key && !current->is_splay_root);
+
+        if (current != NULL && (current->key != key || current->is_splay_root)) {
+            (*stack_p)++;
+        }
     }
+
+    (*stack_p)--;
+
+    return current;
 }
 
 /**
@@ -1020,46 +1012,15 @@ void graphviz_ref(tree_multiset* multiset, node* root, int id) {
  * @param multiset o conjunto.
  * @param found o nó com o valor encontrado.
  */
-void multi_splay(tree_multiset* multiset, node* found) {
-    if (found->parent == NULL) {
-        return;
+node* multi_splay(tree_multiset* multiset, element_t key) {
+    node* stack[SWITCH_STACK_MAX];
+    int stack_p;
+
+    node* found = build_switch_stack(multiset->root, key, stack, &stack_p);
+
+    if (found == NULL) {
+        return NULL;
     }
-
-    node* stack[1024];
-    int stack_p = 0;
-
-    node* current = multiset->root;
-
-    while (current->key != found->key) {
-        assert(stack_p < sizeof(stack) / sizeof(node*));
-
-        int v_depth = 0;
-        node* v = predecessor_on_splay(found->key, current, &v_depth);
-
-        int w_depth = 0;
-        node* w = successor_on_splay(found->key, current, &w_depth);
-
-        if (v != NULL && (w == NULL || v_depth > w_depth)) {
-            stack[stack_p] = v;
-        } else {
-            assert(w != NULL);
-            stack[stack_p] = w;
-        }
-
-        do {
-            if (found->key < current->key) {
-                current = current->left;
-            } else {
-                current = current->right;
-            }
-        } while (current != found && !current->is_splay_root);
-
-        if (current != found || current->is_splay_root) {
-            stack_p++;
-        }
-    }
-
-    stack_p--;
 
     while (stack_p >= 0) {
         switch_and_maintain_root(multiset, stack[stack_p--]);
@@ -1074,6 +1035,8 @@ void multi_splay(tree_multiset* multiset, node* found) {
     }
 
     switch_and_maintain_root(multiset, found);
+
+    return found;
 }
 
 // Complexidade: O(log^2 n) pior caso       [WDS06, teorema 4.1]
@@ -1083,22 +1046,13 @@ void multi_splay(tree_multiset* multiset, node* found) {
 // Em particular, se a sequência de acessos for sequencial, o tempo gasto ao
 // todo é O(n).
 size_t multiset_count(tree_multiset* multiset, element_t elem) {
-    node* current = multiset->root;
-    while (current && current->key != elem) {
-        if (elem < current->key) {
-            current = current->left;
-        } else {
-            current = current->right;
-        }
-    }
+    node* found = multi_splay(multiset, elem);
     
-    if (current == NULL) {
+    if (found == NULL) {
         return 0;
     }
 
-    multi_splay(multiset, current);
-
-    return current->count;
+    return found->count;
 }
 
 void add_ref_depth(node* v, int s) {
@@ -1379,7 +1333,7 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
 
     if (current != NULL) {
         current->count++;
-        multi_splay(multiset, current);
+        multi_splay(multiset, current->key);
         return;
     }
 
@@ -1388,7 +1342,7 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
     
     if (x != NULL && x_depth > z_depth) {
         ref_parent = x;
-        multi_splay(multiset, x);
+        multi_splay(multiset, x->key);
         assert(x->right == z);
 
         node* l = ref_left_child(multiset, x);
@@ -1414,7 +1368,7 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
         assert(z_depth > x_depth);
 
         ref_parent = z;
-        multi_splay(multiset, z);
+        multi_splay(multiset, z->key);
         assert(z->left == x);
 
         node* r = ref_right_child(multiset, z);
@@ -1436,7 +1390,7 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
     }
 
     virtual_rebalance(multiset, ref_parent);
-    multi_splay(multiset, created);
+    multi_splay(multiset, created->key);
 }
 
 void printtree(node* root) {
@@ -1470,10 +1424,21 @@ node* ref_root(tree_multiset* multiset) {
 int main() {
     tree_multiset s = { NULL };
 
-    for (int i = 0; i < 100000; i++) {
+    for (int i = 0; i < 1000; i++) {
         element_t n = rand();
         multiset_insert(&s, n);
     }
+    
+    float start = (float)clock()/CLOCKS_PER_SEC;
+
+    for (int i = 0; i < 1000000; i++) {
+        element_t n = rand();
+        multiset_count(&s, n);
+    }
+
+    float end = (float)clock()/CLOCKS_PER_SEC;
+
+    printf("%fs\n", end - start);
 
     return 0;
 }
