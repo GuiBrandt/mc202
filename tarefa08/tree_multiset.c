@@ -87,7 +87,7 @@ typedef struct tree_multiset_node {
  */
 inline static void maintain_min_depth(node* root) {
     assert(root != NULL);
-    
+
     int max = 0;
 
     if (root->left != NULL && !root->left->is_splay_root) {
@@ -327,6 +327,25 @@ void splay(node* subject, node* root) {
 }
 
 /**
+ * @brief Determina se a subárvore de um nó (p) pode conter um antecessor de
+ *        outro nó (y) na árvore de referência.
+ * 
+ * @param p nó sendo testado.
+ * @param depth profundidade relativa de p em relação a y.
+ * 
+ * @return verdadeiro se é possível que p seja um antecessor de y ou contenha
+ *         um antecessor de y na árvore de referência em sua subárvore.
+ */
+inline static bool is_ref_parent_candidate(node* p, int depth) {
+    // delta_ref_depth - delta_min_depth = min_depth relativo a y, se for maior
+    // ou igual a 0, não existem nós com profundidade menor que y na subárvore,
+    // i.e. não existe pai esquerdo.
+    return p != NULL
+            && !p->is_splay_root
+            && depth + p->delta_ref_depth - p->delta_min_depth < 0;
+}
+
+/**
  * @brief Retorna o nó do predecessor (x) de um nó dado (y) seguindo o critério
  *        descrito na seção 3 de [WDS06].
  * 
@@ -338,57 +357,35 @@ node* ref_left_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->left;
+    
+    // Acumulador de profundidade relativa à subárvore esquerda de y.
+    int depth = 0;
 
-    // delta_ref_depth - delta_min_depth = min_depth relativo a y, se for maior
-    // ou igual a 0, não existem nós com profundidade menor que y na subárvore,
-    // i.e. não existe pai esquerdo.
-    if (
-        current == NULL
-        || current->is_splay_root
-        || current->delta_ref_depth - current->delta_min_depth >= 0
-    ) {
+    if (!is_ref_parent_candidate(current, depth)) {
         return NULL;
     }
 
-    // Todos os cálculos com profundidade são feitos relativos à raíz da
-    // subárvore esquerda.
-    // A variável depth acumula o valor de profundidade relativa durante o
-    // percurso, de forma que depth - nó->delta_min_depth dá a profundidade
-    // mínima relativa de um nó (lembrando que delta_min_depth = ref_depth -
-    // min_ref_depth).
-    int depth = 0;
-    node* succ = NULL;
-
-    while (
-        current
-        && (depth + current->delta_ref_depth) - current->delta_min_depth < 0
-    ) {
+    node* pred = NULL;
+    while (is_ref_parent_candidate(current, depth)) {
         depth += current->delta_ref_depth;
 
-        if (depth < 0 && (succ == NULL || current->key > succ->key)) { // Nó está acima de y
-            succ = current;
+        // Queremos o maior nó com profundidade menor que y
+        if (depth < 0 && (pred == NULL || current->key > pred->key)) {
+            pred = current;
         }
 
-        // Se não é possível avançar para a direita (porque não existe nó
-        // direito, o nó direito não faz parte da árvore splay ou o valor de
-        // min_depth é maior ou igual à profundidade de y), e se já encontramos
-        // algum nó que estivesse acima de y, aquele nó deve ser o pai esquerdo
-        // de y (pois deve ser o maior nó acima de y na árvore de referência).
-        // Caso não tenhamos encontrados algum nó acima de y, continuamos a
-        // busca no nó esquerdo, sem nos preocupar em diminuir o valor do
-        // sucessor encontrado.
-        if (
-            current->right == NULL
-            || current->right->is_splay_root 
-            || (depth + current->right->delta_ref_depth) - current->right->delta_min_depth >= 0
-        ) {
+        // Idealmente, queremos sempre aumentar o valor do nó. Caso não seja
+        // possível, aceitamos diminuir o valor para possivelmente encontrar um
+        // antecessor maior que o atual que esteja acima de y na árvore de
+        // referência.
+        if (!is_ref_parent_candidate(current->right, depth)) {
             current = current->left;
         } else {
             current = current->right;
         }
     }
 
-    return succ;
+    return pred;
 }
 
 /**
@@ -406,33 +403,21 @@ node* ref_right_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->right;
+    int depth = 0;
 
-    if (
-        current == NULL
-        || current->is_splay_root
-        || current->delta_ref_depth - current->delta_min_depth >= 0
-    ) {
+    if (!is_ref_parent_candidate(current, depth)) {
         return NULL;
     }
 
-    int depth = 0;
     node* succ = NULL;
-
-    while (
-        current
-        && (depth + current->delta_ref_depth) - current->delta_min_depth < 0
-    ) {
+    while (is_ref_parent_candidate(current, depth)) {
         depth += current->delta_ref_depth;
 
         if (depth < 0 && (succ == NULL || current->key < succ->key)) {
             succ = current;
         }
 
-        if (
-            current->left == NULL
-            || current->left->is_splay_root 
-            || (depth + current->left->delta_ref_depth) - current->left->delta_min_depth >= 0
-        ) {
+        if (!is_ref_parent_candidate(current->left, depth)) {
             current = current->right;
         } else {
             current = current->left;
@@ -1467,7 +1452,7 @@ node* ref_root(tree_multiset* multiset) {
 int main() {
     tree_multiset s = { NULL };
 
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 10000; i++) {
         element_t n = rand();
         multiset_insert(&s, n);
     }
