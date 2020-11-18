@@ -875,11 +875,26 @@ void multi_splay(tree_multiset* multiset, node* found) {
         backtrack != NULL && backtrack->parent != NULL;
         backtrack = backtrack->parent
     ) {
+        node* p = ref_parent(multiset, backtrack);
+
+        if (p == NULL) {
+            continue;
+        }
+
+        splay(p, NULL);
+
         // Queremos ajustar apenas as arestas não-preferidas
-        while (backtrack->is_splay_root) {
-            node* p = ref_parent(multiset, backtrack);
+        if (backtrack->is_splay_root) {
             switch_and_maintain_root(multiset, p);
         }
+    }
+
+    for (
+        node* backtrack = found;
+        backtrack != NULL && backtrack->parent != NULL;
+        backtrack = backtrack->parent
+    ) {
+        assert(!backtrack->is_splay_root);
     }
 
     switch_and_maintain_root(multiset, found);
@@ -969,7 +984,7 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     assert(
         r_p == NULL
         || (r_p->parent == p && r_p->delta_ref_depth == 0)
-        || (r_p->parent == z && r_p->delta_ref_depth == 2)
+        || (r_p->parent == z && r_p->delta_ref_depth > 0)
     );
 
     if (l_v != NULL) {
@@ -1034,7 +1049,7 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
     assert(
         l_p == NULL
         || (l_p->parent == p && l_p->delta_ref_depth == 0)
-        || (l_p->parent == x && l_p->delta_ref_depth == 2)
+        || (l_p->parent == x && l_p->delta_ref_depth > 0)
     );
 
     if (r_v != NULL) {
@@ -1064,7 +1079,7 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 void graphviz_ref(tree_multiset* multiset, node* root, int id) {
     printf("\"ref_%d_%"PRIu64"\" [label=\"%"PRIu64" | %d | %d\" fillcolor=%s];\n", id, root->key, root->key, root->delta_ref_depth, root->delta_min_depth, root->color == RED ? "red" : "black");
 
-    printf("\"ref_%d_%"PRIu64"\" -- \"%d_%"PRIu64"\" [style=dotted];\n", id, root->key, id, root->key);
+    //printf("\"ref_%d_%"PRIu64"\" -- \"%d_%"PRIu64"\" [style=dotted];\n", id, root->key, id, root->key);
 
     node* l = ref_left_child(multiset, root);
     node* r = ref_right_child(multiset, root);
@@ -1136,10 +1151,10 @@ void virtual_rebalance(tree_multiset* multiset, node* root) {
             printf("subgraph cluster_%d {\n", n);
             graphviz(multiset->root, n);
             printf("}\n");
-            /*printf("subgraph cluster_ref_%d {\n", n);
-            printf("label=Reference\n");
+            printf("subgraph cluster_ref_%d {\n", n);
+            printf("label=Reference;\n");
             graphviz_ref(multiset, current, n);
-            printf("}\n");*/
+            printf("}\n");
             break;
         }
 
@@ -1217,16 +1232,10 @@ void multiset_insert(tree_multiset* multiset, element_t elem) {
 
     node* created = make_node(elem);
     node* ref_parent;
-
-    printf("// x: %"PRIu64" z: %"PRIu64"\n", x ? x->key : -1, z ? z->key : -1);
     
     if (x != NULL && x_depth > z_depth) {
         ref_parent = x;
-
-        graphviz(multiset->root, elem);
         multi_splay(multiset, x);
-        graphviz(multiset->root, 1000 + elem);
-
         assert(x->right == z);
 
         node* l = ref_left_child(multiset, x);
@@ -1292,113 +1301,9 @@ void printtree(node* root) {
 }
 
 int main() {
-    /*node a = { 1, 1, 0 };
-    node b = { 2, 1, 0 };
-    node c = { 3, 1, 0 };
-    node d = { 4, 1, 0 };
-    node e = { 5, 1, 0 };
-    node f = { 6, 1, 0 };
-    node g = { 7, 1, 0 };
-    node h = { 8, 1, 0 };
-    node i = { 9, 1, 0 };
-    node j = { 10, 1, 0 };
-
-    a.parent = &b;
-    a.is_splay_root = false;
-    a.delta_min_depth = 0;
-    a.delta_ref_depth = 1;
-
-    b.parent = &e;
-    b.left = &a;
-    b.right = &c;
-    b.is_splay_root = false;
-    b.delta_min_depth = 0;
-    b.delta_ref_depth = 1;
-    
-    c.parent = &b;
-    c.right = &d;
-    c.is_splay_root = true;
-    c.delta_min_depth = 0;
-    c.delta_ref_depth = 1;
-
-    d.parent = &c;
-    d.is_splay_root = false;
-    d.delta_min_depth = 0;
-    d.delta_ref_depth = 1;
-
-    e.parent = NULL;
-    e.left = &b;
-    e.right = &h;
-    e.is_splay_root = true;
-    e.delta_min_depth = 0;
-    e.delta_ref_depth = 1;
-    
-    f.parent = &h;
-    f.right = &g;
-    f.is_splay_root = false;
-    f.delta_min_depth = 0;
-    f.delta_ref_depth = 1;
-
-    g.parent = &f;
-    g.is_splay_root = false;
-    g.delta_min_depth = 0;
-    g.delta_ref_depth = 1;
-    
-    h.parent = &e;
-    h.left = &f;
-    h.right = &i;
-    h.is_splay_root = true;
-    h.delta_min_depth = 0;
-    h.delta_ref_depth = 1;
-    
-    i.parent = &h;
-    i.right = &j;
-    i.is_splay_root = true;
-    i.delta_min_depth = 0;
-    i.delta_ref_depth = 1;
-    
-    j.parent = &i;
-    j.is_splay_root = false;
-    j.delta_min_depth = 0;
-    j.delta_ref_depth = 1;
-
-    tree_multiset s = { &e };
-
-    printf("%p\n", ref_left_child(&s, &c));
-    printf("%p\n", ref_right_child(&s, &c));
-    printf("%"PRIu64"\n", ref_parent(&s, &c)->key);
-
-    printf("%"PRIu64"\n", ref_left_child(&s, &b)->key);
-    printf("%"PRIu64"\n", ref_right_child(&s, &b)->key);
-    printf("%"PRIu64"\n", ref_parent(&s, &b)->key);
-
-    virtual_rotate_left(&s, &c, &b);
-    
-    printf("%"PRIu64"\n", ref_left_child(&s, &c)->key);
-    printf("%p\n", ref_right_child(&s, &c));
-    printf("%"PRIu64"\n", ref_parent(&s, &c)->key);
-
-    printf("%"PRIu64"\n", ref_left_child(&s, &b)->key);
-    printf("%p\n", ref_right_child(&s, &b));
-    printf("%"PRIu64"\n", ref_parent(&s, &b)->key);
-
-    printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
-    printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
-    printf("%p\n", ref_parent(&s, &e));
-
-    virtual_rotate_right(&s, &c, &e);
-    
-    printf("%"PRIu64"\n", ref_left_child(&s, &c)->key);
-    printf("%"PRIu64"\n", ref_right_child(&s, &c)->key);
-    printf("%p\n", ref_parent(&s, &c));
-
-    printf("%"PRIu64"\n", ref_left_child(&s, &e)->key);
-    printf("%"PRIu64"\n", ref_right_child(&s, &e)->key);
-    printf("%"PRIu64"\n", ref_parent(&s, &e)->key);*/
-
     tree_multiset s = { NULL };
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 35; i++) {
         element_t n = rand() % 100;
         printf("// %"PRIu64"\n", n);
         multiset_insert(&s, n);
