@@ -428,6 +428,57 @@ node* ref_right_parent(node* y) {
 }
 
 /**
+ * @brief Arranja as condições necessárias para realizar uma troca de filho
+ *        preferido em tempo constante.
+ * 
+ * @param y nó cujo filho preferido será trocado. 
+ * @param x ponteiro de saída para o pai esquerdo de y na árvore de referência
+ *          caso esteja na árvore splay de y. Recebe NULL caso não exista ou
+ *          não esteja na árvore splay de y.
+ * @param z idem x, mas recebe o pai direito de y na árvore de referência.
+ * @param l ponteiro de saída para o nó raíz da árvore splay correspondente à
+ *          subárvore esquerda de y na árvore de referência.
+ * @param r idem l, mas para a subárvore direita de y na árvore de referência.
+ */
+inline static void prepare_switch(
+    node* y,
+    node** x,
+    node** z,
+    node** l,
+    node** r
+) {
+    assert(y != NULL);
+
+    // Fazemos splay de y até a raíz, para garantir que x e z são descendentes
+    // de y.
+    splay(y, NULL);
+
+    // Predecessor (x) da subárvore esquerda de y (L) na árvore de referência
+    *x = ref_left_parent(y);
+
+    // Sucessor (z) da subárvore direita de y (R) na árvore de referência
+    *z = ref_right_parent(y);
+
+    // Subimos x e z até que sejam filhos de y, de forma que garantimos que a
+    // direita de a é L e a subárvore esquerda de z é R.
+    // Se x e/ou z não existem, então a subárvore esquerda de y deve ser L e
+    // a subárvore direita de y deve ser R (seção 3.3.3 do paper extendido).
+    if (*x != NULL) {
+        splay(*x, y);
+        *l = (*x)->right;
+    } else {
+        *l = y->left;
+    }
+
+    if (*z != NULL) {
+        splay(*z, y);
+        *r = (*z)->left;
+    } else {
+        *r = y->right;
+    }
+}
+
+/**
  * @brief Troca o filho preferido de um nó na árvore de referência.
  * 
  * Esse algoritmo é descrito na seção 3 de [WDS06].
@@ -445,40 +496,14 @@ node* ref_right_parent(node* y) {
  * esquerda de y na árvore de referência e a subárvore direita de y será a
  * subárvore direita de y na árvore de referência, respectivamente.
  * 
+ * Caso o nó dado tenha apenas um filho, esta função sempre marca ele como
+ * filho preferido.
+ * 
  * @param y nó para o qual trocar o filho preferido (!= NULL).
  */
 void switch_preferred(node* y) {
-    assert(y != NULL);
-
-    // Fazemos splay de y até a raíz, para garantir que x e z são descendentes
-    // de y.
-    splay(y, NULL);
-
-    // Predecessor (x) da subárvore esquerda de y (L) na árvore de referência
-    node* x = ref_left_parent(y);
-
-    // Sucessor (z) da subárvore direita de y (R) na árvore de referência
-    node* z = ref_right_parent(y);
-
-    // Subimos x e z até que sejam filhos de y, de forma que garantimos que a
-    // direita de a é L e a subárvore esquerda de z é R.
-    // Se x e/ou z não existem, então a subárvore esquerda de y deve ser L e
-    // a subárvore direita de y deve ser R (seção 3.3.3 do paper extendido).
-    node* l;
-    if (x != NULL) {
-        splay(x, y);
-        l = x->right;
-    } else {
-        l = y->left;
-    }
-
-    node* r;
-    if (z != NULL) {
-        splay(z, y);
-        r = z->left;
-    } else {
-        r = y->right;
-    }
+    node *x, *z, *l, *r;
+    prepare_switch(y, &x, &z, &l, &r);
 
     // Invariante: durante uma troca, um dos nós trocados deve ser um caminho
     // preferido e o outro não.
@@ -504,81 +529,36 @@ void switch_preferred(node* y) {
     maintain_min_depth(y);
 }
 
-void switch_ltr(node* y) {
-    assert(y != NULL);
+/**
+ * @brief Enumeração de direções de troca de filho preferido. 
+ */
+typedef enum direction {
+    LTR,    // Da esquerda para a direita
+    RTL     // Da direita para a esquerda
+} direction;
 
-    splay(y, NULL);
-    node* x = ref_left_parent(y);
-    node* z = ref_right_parent(y);
+/**
+ * @brief Troca o filho preferido de um nó em uma direção dada.
+ * 
+ * Diferente da função switch_preferred, esta função pode fazer com que o único
+ * filho do nó dado seja marcado como não-preferido. Isso é importante durante
+ * as rotações virtuais.
+ * 
+ * @param y nó cujo filho deve ser trocado.
+ * @param dir direção da troca.
+ */
+void switch_with_direction(node* y, direction dir) {
+    node *x, *z, *l, *r;
+    prepare_switch(y, &x, &z, &l, &r);
 
-    node* l;
-    if (x != NULL) {
-        splay(x, y);
-        l = x->right;
-    } else {
-        l = y->left;
-    }
-
-    node* r;
-    if (z != NULL) {
-        splay(z, y);
-        r = z->left;
-    } else {
-        r = y->right;
-    }
-
-    assert(!l || !r || (!l->is_splay_root && r->is_splay_root));
+    assert(!l || !r || (l->is_splay_root == (dir != LTR) && r->is_splay_root == (dir != RTL)));
 
     if (l != NULL) {
-        l->is_splay_root = true;
+        l->is_splay_root = (dir == LTR);
     }
     
     if (r != NULL) {
-        r->is_splay_root = false;
-    }
-
-    if (z != NULL) {
-        maintain_min_depth(z);
-    }
-
-    if (x != NULL) {
-        maintain_min_depth(x);
-    }
-
-    maintain_min_depth(y);
-}
-
-void switch_rtl(node* y) {
-    assert(y != NULL);
-
-    splay(y, NULL);
-    node* x = ref_left_parent(y);
-    node* z = ref_right_parent(y);
-
-    node* l;
-    if (x != NULL) {
-        splay(x, y);
-        l = x->right;
-    } else {
-        l = y->left;
-    }
-
-    node* r;
-    if (z != NULL) {
-        splay(z, y);
-        r = z->left;
-    } else {
-        r = y->right;
-    }
-
-    assert(!l || !r || (!r->is_splay_root && l->is_splay_root));
-
-    if (l != NULL) {
-        l->is_splay_root = false;
-    }
-    
-    if (r != NULL) {
-        r->is_splay_root = true;
+        r->is_splay_root = (dir == RTL);
     }
 
     if (z != NULL) {
@@ -1113,16 +1093,16 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     // preferido de p.
     node* r = ref_right_child(multiset, v);
     if (r == NULL || !r->is_splay_root) {
-        switch_rtl(v);
+        switch_with_direction(v, RTL);
     }
-    switch_ltr(v);
+    switch_with_direction(v, LTR);
     assert(r == NULL || !r->is_splay_root);
 
     splay(p, NULL);
     if (!v->is_splay_root) {
-        switch_ltr(p);
+        switch_with_direction(p, LTR);
     }
-    switch_rtl(p);
+    switch_with_direction(p, RTL);
 
     assert(!v->is_splay_root);
 
@@ -1187,16 +1167,16 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
     // preferido de p.
     node* l = ref_left_child(multiset, v);
     if (l == NULL || !l->is_splay_root) {
-        switch_ltr(v);
+        switch_with_direction(v, LTR);
     }
-    switch_rtl(v);
+    switch_with_direction(v, RTL);
     assert(l == NULL || !l->is_splay_root);
 
     splay(p, NULL);
     if (!v->is_splay_root) {
-        switch_rtl(p);
+        switch_with_direction(p, RTL);
     }
-    switch_ltr(p);
+    switch_with_direction(p, LTR);
 
     assert(!v->is_splay_root);
 
