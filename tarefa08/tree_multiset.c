@@ -777,7 +777,6 @@ void switch_and_maintain_root(tree_multiset* multiset, node* y) {
  */
 node* ref_left_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    printf("// ref_l(%"PRIu64")\n", v->key);
     switch_and_maintain_root(multiset, v);
     
     node* t_l = v->left != NULL && v->left->delta_ref_depth < 0
@@ -810,8 +809,6 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
 node* ref_right_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
     switch_and_maintain_root(multiset, v);
-    
-    graphviz(multiset->root, 0);
 
     node* t_r = v->right != NULL && v->right->delta_ref_depth < 0
         ? v->right->left
@@ -1201,11 +1198,6 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
 void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
     assert(v != NULL);
     assert(p != NULL);
-
-    printf("// v: %lu p: %lu", v->key, p->key);
-    graphviz(multiset->root, 12);
-    fflush(stdout);
-
     assert(ref_parent(multiset, v) == p);
     assert(v == ref_right_child(multiset, p));
 
@@ -1256,8 +1248,6 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 
         maintain_min_depth(p);
     }
-
-    printf(" x: %lu r_v: %lu l_p: %lu\n", x ? x->key : -1, r_v ? r_v->key : -1, l_p ? l_p->key : -1);
 
     assert(
         l_p == NULL
@@ -1480,9 +1470,8 @@ node* ref_root(tree_multiset* multiset) {
 int main() {
     tree_multiset s = { NULL };
 
-    for (int i = 0; i < 1000; i++) {
-        element_t n = rand() % 10000;
-        printf("// %"PRIu64"\n", n);
+    for (int i = 0; i < 100000; i++) {
+        element_t n = rand();
         multiset_insert(&s, n);
     }
 
