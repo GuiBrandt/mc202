@@ -501,6 +501,7 @@ inline static void prepare_switch(
  * @param y nó para o qual trocar o filho preferido (!= NULL).
  */
 void switch_preferred(node* y) __attribute__((hot));
+
 void switch_preferred(node* y) {
     node *x, *z, *l, *r;
     prepare_switch(y, &x, &z, &l, &r);
@@ -588,33 +589,35 @@ void switch_with_direction(node* y, direction dir) {
 node* ref_topmost(node* root) {
     assert(root != NULL);
 
+    node* current = root;
+
     // Se delta_min_depth = 0, então ref_depth - min_ref_depth = 0, logo
-    // ref_depth = min_ref_depth, então a raíz deve ser o nó de profundidade
+    // ref_depth = min_ref_depth, então o atual deve ser o nó de profundidade
     // mínima.
-    if (root->delta_min_depth == 0) {
-        return root;
-    }
-    
-    int relative_min_depth_left = root->left != NULL
-        ? root->left->delta_ref_depth - root->left->delta_min_depth
-        : INT_MAX;
+    while (current->delta_min_depth != 0) {
+        int relative_min_depth_left = root->left != NULL
+            ? root->left->delta_ref_depth - root->left->delta_min_depth
+            : INT_MAX;
 
-    int relative_min_depth_right = root->right != NULL
-        ? root->right->delta_ref_depth - root->right->delta_min_depth
-        : INT_MAX;
-        
-    if (relative_min_depth_left < relative_min_depth_right) {
-        return ref_topmost(root->left);
+        int relative_min_depth_right = root->right != NULL
+            ? root->right->delta_ref_depth - root->right->delta_min_depth
+            : INT_MAX;
+            
+        if (relative_min_depth_left < relative_min_depth_right) {
+            current = current->left;
 
-    } else {
-        assert(root->right != NULL);
-        assert(
-            root->left == NULL
-            || relative_min_depth_right < relative_min_depth_left
-        );
-        
-        return ref_topmost(root->right);
+        } else {
+            assert(root->right != NULL);
+            assert(
+                root->left == NULL
+                || relative_min_depth_right < relative_min_depth_left
+            );
+            
+            current = current->right;
+        }
     }
+
+    return current;
 }
 
 struct tree_multiset {
