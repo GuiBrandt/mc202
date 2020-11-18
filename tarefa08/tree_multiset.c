@@ -751,7 +751,6 @@ node* ref_parent(tree_multiset* multiset, node* v) {
  * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
-// TODO: refatorar
 node* predecessor_on_splay(node* root, element_t key, int* depth) {
     if (root == NULL) {
         return NULL;
@@ -766,7 +765,7 @@ node* predecessor_on_splay(node* root, element_t key, int* depth) {
             *depth -= root->delta_ref_depth;
             return NULL;
         }
-        
+
         *depth += current->delta_ref_depth;
 
         while (current->right != NULL && !current->right->is_splay_root) {
@@ -775,14 +774,19 @@ node* predecessor_on_splay(node* root, element_t key, int* depth) {
         }
 
         return current;
+
     } else if (root->key < key) {
         node* rec = NULL;
-        if (root->right && !root->right->is_splay_root) {
+        
+        if (root->right != NULL && !root->right->is_splay_root) {
             rec = predecessor_on_splay(root->right, key, depth);
         }
+        
         return rec == NULL ? root : rec;
-    } else if (root->left && !root->left->is_splay_root) {
+
+    } else if (root->left != NULL && !root->left->is_splay_root) {
         node* rec = predecessor_on_splay(root->left, key, depth);
+
         if (rec == NULL) {
             *depth -= root->delta_ref_depth;
         }
@@ -806,7 +810,6 @@ node* predecessor_on_splay(node* root, element_t key, int* depth) {
  * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
-// TODO: refatorar
 node* successor_on_splay(node* root, element_t key, int* depth) {
     if (root == NULL) {
         return NULL;
@@ -830,14 +833,19 @@ node* successor_on_splay(node* root, element_t key, int* depth) {
         }
 
         return current;
+
     } else if (root->key > key) {
         node* rec = NULL;
+        
         if (root->left != NULL && !root->left->is_splay_root) {
             rec = successor_on_splay(root->left, key, depth);
         }
+        
         return rec == NULL ? root : rec;
+
     } else if (root->right && !root->right->is_splay_root) {
         node* rec = successor_on_splay(root->right, key, depth);
+        
         if (rec == NULL) {
             *depth -= root->delta_ref_depth;
         }
@@ -973,22 +981,6 @@ node* multi_splay(tree_multiset* multiset, element_t key) {
     maintain_root(multiset, found);
 
     return found;
-}
-
-// Complexidade: O(log^2 n) pior caso       [WDS06, teorema 4.1]
-//               O(log log n)-competitiva   [WDS06, teorema 4.2]
-//               O(log n) amortizado        [WDS06, teorema 4.3]
-//
-// Em particular, se a sequência de acessos for sequencial, o tempo gasto ao
-// todo é O(n).
-size_t multiset_count(tree_multiset* multiset, element_t elem) {
-    node* found = multi_splay(multiset, elem);
-    
-    if (found == NULL) {
-        return 0;
-    }
-
-    return found->count;
 }
 
 /**
@@ -1243,7 +1235,7 @@ inline static bool is_black(node* v) {
  * @param start o nó a partir do qual começar a rebalancear (de cima para
  *              baixo).
  */
-void virtual_rebalance(tree_multiset* multiset, node* start) {
+inline static void virtual_rebalance(tree_multiset* multiset, node* start) {
     node* current = start;
 
     while (current != NULL) {
@@ -1286,20 +1278,47 @@ void virtual_rebalance(tree_multiset* multiset, node* start) {
 }
 
 /**
+ * @brief Aloca memória e termina o programa com uma mensagem em caso de falha.
+ * 
+ * @param size número de bytes a serem alocados.
+ * @return o ponteiro alocado.
+ */
+void* xmalloc(size_t size) {
+    void* ptr = malloc(size);
+
+    if (ptr == NULL) {
+        fprintf(stderr, "Erro fatal: Out of memory.\n");
+        exit(-1);
+    }
+
+    return ptr;
+}
+
+/**
+ * @brief Libera a memória alocada para um nó e seus filhos.
+ * 
+ * @param root nó raíz.
+ */
+void destroy_node(node* root) {
+    if (root == NULL) {
+        return;
+    }
+    
+    destroy_node(root->left);
+    destroy_node(root->right);
+
+    free(root);
+}
+
+/**
  * @brief Constrói um nó-folha com a chave dada e count = 1.
  * 
  * @param key chave do nó.
  * 
  * @return ponteiro para o nó alocado.
  */
-node* make_node(element_t key) {
-    node* v = (node*) malloc(sizeof(node));
-
-    if (v == NULL) {
-        fprintf(stderr, "Erro fatal: Out of memory.\n");
-        exit(-1);
-    }
-
+inline static node* make_node(element_t key) {
+    node* v = (node*) xmalloc(sizeof(node));
     v->key = key;
     v->count = 1;
     v->left = NULL;
@@ -1309,7 +1328,6 @@ node* make_node(element_t key) {
     v->delta_ref_depth = 1;
     v->delta_min_depth = 0;
     v->color = RED;
-
     return v;
 }
 
@@ -1320,8 +1338,7 @@ node* make_node(element_t key) {
  * @param root raíz a partir da qual buscar.
  * @param key elemento sendo procurado.
  * @param x ponteiro de saída para o nó do pai esquerdo.
- * @param x_depth ponteiro de saída para a profundidade do pai
- *                          esquerdo.
+ * @param x_depth ponteiro de saída para a profundidade do pai esquerdo.
  * @param z idem pred para o pai direito.
  * @param z_depth idem x_depth para o pai direito.
  * 
@@ -1364,6 +1381,8 @@ inline static node* find_with_parents(
 
 /**
  * @brief Insere um nó na MST dados seus pais direito e equerdo.
+ * 
+ * Descrito em [WDS06], seção 6.4.
  * 
  * @param multiset a MST.
  * @param x o pai esquerdo do nó.
@@ -1430,6 +1449,28 @@ inline static void insert_with_parents(
     virtual_rebalance(multiset, parent);
 }
 
+tree_multiset* multiset_init() {
+    tree_multiset* multiset = (tree_multiset*) xmalloc(sizeof(tree_multiset));   
+    multiset->root = NULL;
+    return multiset;    
+}
+
+// Complexidade: O(log^2 n) pior caso       [WDS06, teorema 4.1]
+//               O(log log n)-competitiva   [WDS06, teorema 4.2]
+//               O(log n) amortizado        [WDS06, teorema 4.3]
+//
+// Em particular, se a sequência de acessos for sequencial, o tempo gasto ao
+// todo é O(n).
+size_t multiset_count(tree_multiset* multiset, element_t elem) {
+    node* found = multi_splay(multiset, elem);
+    
+    if (found == NULL) {
+        return 0;
+    }
+
+    return found->count;
+}
+
 void multiset_insert(tree_multiset* multiset, element_t key) {
     if (multiset->root == NULL) {
         multiset->root = make_node(key);
@@ -1457,6 +1498,10 @@ void multiset_insert(tree_multiset* multiset, element_t key) {
     
     insert_with_parents(multiset, x, x_depth, z, z_depth, created);
     multi_splay(multiset, created->key);
+}
+
+void multiset_destroy(tree_multiset* multiset) {
+    destroy_node(multiset->root);
 }
 
 int main() {
