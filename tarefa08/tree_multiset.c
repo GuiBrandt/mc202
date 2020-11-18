@@ -86,6 +86,8 @@ typedef struct tree_multiset_node {
  * @param root nó envolvido na rotação.
  */
 inline static void maintain_min_depth(node* root) {
+    assert(root != NULL);
+    
     int max = 0;
 
     if (root->left != NULL && !root->left->is_splay_root) {
@@ -105,6 +107,65 @@ inline static void maintain_min_depth(node* root) {
     }
 
     root->delta_min_depth = max;
+}
+
+/**
+ * @brief Corrige os valores auxiliares dos nós envolvidos em uma rotação.
+ * 
+ * @param p nó rotacionado.
+ * @param q filho rotacionado.
+ * @param y filho trocado (na rotação direita, o filho direito de q, na
+ *          esquerda o filho esquerdo de q).
+ */
+inline static void maintain_auxiliary_values(node* p, node* q, node* y) {
+    assert(p != NULL);
+    assert(q != NULL);
+
+    // Troca o tipo de aresta para p e q
+    p->is_splay_root ^= q->is_splay_root;
+    q->is_splay_root ^= p->is_splay_root;
+    p->is_splay_root ^= q->is_splay_root;
+
+    // Corrige os valores de delta_ref_depth
+    int delta_q = q->delta_ref_depth;
+    q->delta_ref_depth += p->delta_ref_depth;
+    p->delta_ref_depth = -delta_q;
+
+    if (y != NULL) {
+        y->delta_ref_depth += delta_q;
+    }
+
+    maintain_min_depth(p);
+    maintain_min_depth(q);
+}
+
+/**
+ * @brief 
+ * 
+ * @param o pai do nó rotacionado.
+ * @param p nó rotacionado.
+ * @param q filho rotacionado.
+ * @param y filho trocado (na rotação direita, o filho direito de q, na
+ *          esquerda o filho esquerdo de q).
+ */
+void maintain_parents(node* o, node* p, node* q, node* y) {
+    assert(p != NULL);
+    assert(q != NULL);
+
+    if (o != NULL) {
+        if (o->right == p) {
+            o->right = q;
+        } else {
+            o->left = q;
+        }
+    }
+
+    if (y != NULL) {
+        y->parent = p;
+    }
+
+    p->parent = q;
+    q->parent = o;
 }
 
 /**
@@ -138,37 +199,8 @@ inline static void rotate_left(node* p) {
     q->left = p;
     p->right = y;
 
-    if (o != NULL) {
-        if (o->right == p) {
-            o->right = q;
-        } else {
-            o->left = q;
-        }
-    }
-
-    if (y != NULL) {
-        y->parent = p;
-    }
-
-    p->parent = q;
-    q->parent = o;
-
-    // Troca o tipo de aresta para p e q
-    p->is_splay_root ^= q->is_splay_root;
-    q->is_splay_root ^= p->is_splay_root;
-    p->is_splay_root ^= q->is_splay_root;
-
-    // Corrige os valores de delta_ref_depth
-    int delta_q = q->delta_ref_depth;
-    q->delta_ref_depth += p->delta_ref_depth;
-    p->delta_ref_depth = -delta_q;
-
-    if (y != NULL) {
-        y->delta_ref_depth += delta_q;
-    }
-
-    maintain_min_depth(p);
-    maintain_min_depth(q);
+    maintain_parents(o, p, q, y);
+    maintain_auxiliary_values(p, q, y);
 }
 
 /**
@@ -202,37 +234,8 @@ inline static void rotate_right(node* p) {
     q->right = p;
     p->left = y;
 
-    if (o != NULL) {
-        if (o->right == p) {
-            o->right = q;
-        } else {
-            o->left = q;
-        }
-    }
-
-    p->parent = q;
-    q->parent = o;
-
-    if (y != NULL) {
-        y->parent = p;
-    }
-
-    // Troca o tipo de aresta para p e q
-    p->is_splay_root ^= q->is_splay_root;
-    q->is_splay_root ^= p->is_splay_root;
-    p->is_splay_root ^= q->is_splay_root;
-
-    // Corrige os valores de delta_ref_depth
-    int delta_q = q->delta_ref_depth;
-    q->delta_ref_depth += p->delta_ref_depth;
-    p->delta_ref_depth = -delta_q;
-
-    if (y != NULL) {
-        y->delta_ref_depth += delta_q;
-    }
-
-    maintain_min_depth(p);
-    maintain_min_depth(q);
+    maintain_parents(o, p, q, y);
+    maintain_auxiliary_values(p, q, y);
 }
 
 /**
@@ -862,7 +865,7 @@ node* ref_parent(tree_multiset* multiset, node* v) {
  * @return o nó contendo o predecessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
-node* predecessor_on_splay(element_t key, node* root, int* depth) {
+node* predecessor_on_splay(node* root, element_t key, int* depth) {
     if (root == NULL) {
         return NULL;
     }
@@ -888,11 +891,11 @@ node* predecessor_on_splay(element_t key, node* root, int* depth) {
     } else if (root->key < key) {
         node* rec = NULL;
         if (root->right && !root->right->is_splay_root) {
-            rec = predecessor_on_splay(key, root->right, depth);
+            rec = predecessor_on_splay(root->right, key, depth);
         }
         return rec == NULL ? root : rec;
     } else if (root->left && !root->left->is_splay_root) {
-        node* rec = predecessor_on_splay(key, root->left, depth);
+        node* rec = predecessor_on_splay(root->left, key, depth);
         if (rec == NULL) {
             *depth -= root->delta_ref_depth;
         }
@@ -916,7 +919,7 @@ node* predecessor_on_splay(element_t key, node* root, int* depth) {
  * @return o nó contendo o sucessor do valor na árvore, ou NULL caso o valor
  *         seja mínimo.
  */
-node* successor_on_splay(element_t key, node* root, int* depth) {
+node* successor_on_splay(node* root, element_t key, int* depth) {
     if (root == NULL) {
         return NULL;
     }
@@ -942,11 +945,11 @@ node* successor_on_splay(element_t key, node* root, int* depth) {
     } else if (root->key > key) {
         node* rec = NULL;
         if (root->left != NULL && !root->left->is_splay_root) {
-            rec = successor_on_splay(key, root->left, depth);
+            rec = successor_on_splay(root->left, key, depth);
         }
         return rec == NULL ? root : rec;
     } else if (root->right && !root->right->is_splay_root) {
-        node* rec = successor_on_splay(key, root->right, depth);
+        node* rec = successor_on_splay(root->right, key, depth);
         if (rec == NULL) {
             *depth -= root->delta_ref_depth;
         }
@@ -958,9 +961,32 @@ node* successor_on_splay(element_t key, node* root, int* depth) {
     return NULL;
 }
 
-#define SWITCH_STACK_MAX 2048
+#define SWITCH_STACK_MAX 256
 
-node* build_switch_stack(node* root, element_t key, node* stack[], int* stack_p) {
+/**
+ * @brief Percorre a árvore buscando um valor dado constrói uma pilha de nós
+ *        cujo filho preferido deve ser trocado durante a operação de
+ *        multi-splay para o valor.
+ * 
+ * Descrito em [WDS06], seção 3.
+ * 
+ * @param root a raíz do conjunto.
+ * @param key o valor do elemento para o que o multi-splay será feito.
+ * @param stack ponteiro para um vetor que será usado como pilha.
+ * @param stack_p ponteiro para um valor que contém o índice do último elemento
+ *                na pilha.
+ * 
+ * Caso a pilha esteja vazia, stack_p contém -1 ao final da execução da função.
+ * 
+ * @return o nó encontrado para o valor dado na árvore, ou seu pai caso o valor
+ *         não exista no conjunto.
+ */
+node* find_and_record_switches(
+    node* root,
+    element_t key,
+    node* stack[],
+    int* stack_p
+) {
     *stack_p = 0;
     
     if (root == NULL || root->key == key) {
@@ -969,15 +995,26 @@ node* build_switch_stack(node* root, element_t key, node* stack[], int* stack_p)
     }
 
     node* current = root;
-    
     while (current != NULL && current->key != key) {
-        assert(*stack_p < SWITCH_STACK_MAX);
+        // Verifica-se o limite da stack por educação, mas não deve acontecer:
+        // a árvore tem no máximo 2 lg n árvores splay (pois a árvore de
+        // referência é uma rubro-negra e cada nó tem exatamente um filho
+        // preferido), das quais cada uma gera no máximo uma entrada na pilha.
+        // Para estourar esse valor, teríamos que ter mais que 2^128 elementos
+        // distintos na árvore, o que certamente não é possível usando valores
+        // de 64 bits.
+        if (*stack_p >= SWITCH_STACK_MAX) {
+            fprintf(stderr, "Erro fatal: Stack Overflow.");
+        }
 
+        // A troca acontece no predecessor ou no sucessor do valor buscado na
+        // árvore splay atual, dependendo de qual for mais profundo na árvore
+        // de referência.
         int v_depth = 0;
-        node* v = predecessor_on_splay(key, current, &v_depth);
+        node* v = predecessor_on_splay(current, key, &v_depth);
 
         int w_depth = 0;
-        node* w = successor_on_splay(key, current, &w_depth);
+        node* w = successor_on_splay(current, key, &w_depth);
 
         if (v != NULL && (w == NULL || v_depth > w_depth)) {
             stack[*stack_p] = v;
@@ -986,13 +1023,18 @@ node* build_switch_stack(node* root, element_t key, node* stack[], int* stack_p)
             stack[*stack_p] = w;
         }
 
+        // Avançamos até a raíz da próxima árvore splay, caso exista
         do {
             if (key < current->key) {
                 current = current->left;
             } else {
                 current = current->right;
             }
-        } while (current != NULL && current->key != key && !current->is_splay_root);
+        } while (
+            current != NULL
+            && current->key != key
+            && !current->is_splay_root
+        );
 
         if (current != NULL && (current->key != key || current->is_splay_root)) {
             (*stack_p)++;
@@ -1016,7 +1058,8 @@ node* multi_splay(tree_multiset* multiset, element_t key) {
     node* stack[SWITCH_STACK_MAX];
     int stack_p;
 
-    node* found = build_switch_stack(multiset->root, key, stack, &stack_p);
+    node* found =
+        find_and_record_switches(multiset->root, key, stack, &stack_p);
 
     if (found == NULL) {
         return NULL;
