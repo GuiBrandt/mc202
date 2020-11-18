@@ -51,6 +51,10 @@ typedef struct tree_multiset_node {
     // Número de repetições no conjunto
     size_t count;
 
+    // Número de remoções necessários na subárvore com raíz no nó para tornar a
+    // árvore legal
+    size_t diff_cool;
+
     // Filho esquerdo
     struct tree_multiset_node* left;
 
@@ -203,6 +207,12 @@ inline static void rotate_left(node* p) {
     q->left = p;
     p->right = y;
 
+    if (y != NULL) {
+        q->diff_cool -= y->diff_cool;
+    }
+    p->diff_cool -= q->diff_cool;
+    q->diff_cool += p->diff_cool;
+
     maintain_parents(o, p, q, y);
     maintain_auxiliary_values(p, q, y);
 }
@@ -238,6 +248,12 @@ inline static void rotate_right(node* p) {
     q->right = p;
     p->left = y;
 
+    if (y != NULL) {
+        q->diff_cool -= y->diff_cool;
+    }
+    p->diff_cool -= q->diff_cool;
+    q->diff_cool += p->diff_cool;
+
     maintain_parents(o, p, q, y);
     maintain_auxiliary_values(p, q, y);
 }
@@ -271,31 +287,30 @@ void splay(node* subject, node* root) {
 
             assert(grandparent != NULL);
 
-            // Zag-Zag (em R)
-            //
-            //    P                      R
-            //   / \                    / \ 
-            //  x   Q                  Q   w
-            //     / \       =>       / \ 
-            //    y   R              P   z
-            //       / \            / \ 
-            //      z   w          x   y
-            //
-            //
+            /* Zag-Zag (em R)
+             *
+             *    P                      R
+             *   / \                    / \ 
+             *  x   Q                  Q   w
+             *     / \       =>       / \ 
+             *    y   R              P   z
+             *       / \            / \ 
+             *      z   w          x   y
+             */
             if (grandparent->right == parent) {
                 rotate_left(grandparent);
                 rotate_left(parent);
 
-            // Zag-Zig (em P)
-            //
-            //        R 
-            //       / \               P
-            //      Q   w            /   \ 
-            //     / \       =>     Q     R
-            //    x   P            / \   / \ 
-            //       / \          x   y z   w
-            //      y   z
-            //
+            /* Zag-Zig (em P)
+             *
+             *        R 
+             *       / \               P
+             *      Q   w            /   \ 
+             *     / \       =>     Q     R
+             *    x   P            / \   / \ 
+             *       / \          x   y z   w
+             *      y   z
+             */
             } else {
                 assert(grandparent->left == parent);
 
@@ -1321,6 +1336,7 @@ inline static node* make_node(element_t key) {
     node* v = (node*) xmalloc(sizeof(node));
     v->key = key;
     v->count = 1;
+    v->diff_cool = key > 1 ? 1 : 0;
     v->left = NULL;
     v->right = NULL;
     v->parent = NULL;
@@ -1379,6 +1395,31 @@ inline static node* find_with_parents(
     return current;
 }
 
+void maintain_diff_cool(node* v) {    
+    if (v->count >= v->key) {
+        v->diff_cool = v->count - v->key;
+    } else {
+        v->diff_cool = v->count;
+    }
+
+    if (v->left != NULL) {
+        v->diff_cool += v->left->diff_cool;
+    }
+    
+    if (v->right != NULL) {
+        v->diff_cool += v->right->diff_cool;
+    }
+}
+
+void propagate_diff_cool(node* found) {
+    node* current = found->parent;
+
+    while (current != NULL) {
+        maintain_diff_cool(current);
+        current = current->parent;
+    }
+}
+
 /**
  * @brief Insere um nó na MST dados seus pais direito e equerdo.
  * 
@@ -1407,8 +1448,6 @@ inline static void insert_with_parents(
 
         assert(x->right == z);
 
-        node* l = ref_left_child(multiset, x);
-
         if (z != NULL) {
             assert(z->left == NULL);
 
@@ -1430,8 +1469,6 @@ inline static void insert_with_parents(
 
         assert(z->left == x);
 
-        node* r = ref_right_child(multiset, z);
-
         if (x != NULL) {
             assert(x->right == NULL);
 
@@ -1445,6 +1482,8 @@ inline static void insert_with_parents(
             created->parent = z;
         }
     }
+
+    propagate_diff_cool(created);
 
     virtual_rebalance(multiset, parent);
 }
@@ -1490,38 +1529,23 @@ void multiset_insert(tree_multiset* multiset, element_t key) {
 
     if (found != NULL) {
         found->count++;
-        multi_splay(multiset, found->key);
-        return;
-    }
 
-    node* created = make_node(key);
-    
-    insert_with_parents(multiset, x, x_depth, z, z_depth, created);
-    multi_splay(multiset, created->key);
+        maintain_diff_cool(found);
+        propagate_diff_cool(found);
+        multi_splay(multiset, found->key);
+        
+    } else {
+        node* created = make_node(key);
+        
+        insert_with_parents(multiset, x, x_depth, z, z_depth, created);
+        multi_splay(multiset, created->key);
+    }
 }
 
 void multiset_destroy(tree_multiset* multiset) {
     destroy_node(multiset->root);
 }
 
-int main() {
-    tree_multiset s = { NULL };
-
-    for (int i = 0; i < 10000; i++) {
-        element_t n = rand();
-        multiset_insert(&s, n);
-    }
-    
-    float start = (float)clock()/CLOCKS_PER_SEC;
-
-    for (int i = 0; i < 1000000; i++) {
-        element_t n = rand();
-        multiset_count(&s, n);
-    }
-
-    float end = (float)clock()/CLOCKS_PER_SEC;
-
-    printf("%fs\n", end - start);
-
-    return 0;
+size_t multiset_diff_cool(tree_multiset* multiset) {
+    return multiset->root->diff_cool;
 }
