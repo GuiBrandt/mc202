@@ -55,9 +55,12 @@ void multiset_insert(tree_multiset* multiset, element_t key);
  */
 size_t multiset_count(tree_multiset* multiset, element_t key);
 
+size_t multiset_diff_cool(tree_multiset* multiset);
+
 /**
  * @brief Libera os recursos alocados para um multiset.
  * 
  * @param multiset o conjunto.
  */
 void multiset_destroy(tree_multiset* multiset);
+
