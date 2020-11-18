@@ -989,7 +989,16 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
     return found->count;
 }
 
+/**
+ * @brief Altera a profundidade de um nó na árvore de referência sem afetar
+ *        sua subárvore na MST.
+ * 
+ * @param v nó cuja profundidade deve ser alterada.
+ * @param s valor a ser adicionado à profundidade (pode ser negativo).
+ */
 inline static void add_ref_depth(node* v, int s) {
+    assert(v != NULL);
+
     v->delta_ref_depth += s;
 
     if (v->left != NULL) {
@@ -1002,21 +1011,19 @@ inline static void add_ref_depth(node* v, int s) {
 }
 
 /**
- * @brief Executa uma rotação virtual para a direita.
+ * @brief Prepara a MST para uma rotação virtual à direita.
  * 
- * @param multiset o conjunto.
+ * Descrito em [WDS06], seção 6.5.
+ * 
+ * @param multiset a MST.
  * @param v o filho esquerdo de p na árvore de referência.
  * @param p o nó sendo rotacionado na árvore de referência.
  */
-void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
-    assert(v != NULL);
-    assert(p != NULL);
-
-    assert(ref_parent(multiset, v) == p);
-    assert(v == ref_left_child(multiset, p));
-
-    // Garante que o filho direito de v é o preferido e que v é o filho
-    // preferido de p.
+inline static void prepare_virtual_right_rotation(
+    tree_multiset* multiset,
+    node* v,
+    node* p
+) {
     node* r = ref_right_child(multiset, v);
     if (r == NULL || !r->is_splay_root) {
         switch_with_direction(v, RTL);
@@ -1033,8 +1040,16 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     assert(!v->is_splay_root);
 
     maintain_root(multiset, p);
+}
 
-    // Modifica as profundidades dos nós apropriados de acordo com a rotação    
+/**
+ * @brief Altera as profundidades dos nós na árvore de referência de forma a
+ *        simular uma rotação à direita.
+ * 
+ * @param v filho esquerdo de p na árvore de referência.
+ * @param p nó sendo rotacionado na árvore de referência.
+ */
+inline static void adjust_ref_depths_right(node* v, node* p) {
     add_ref_depth(v, -1);
     add_ref_depth(p, 1);
 
@@ -1060,13 +1075,31 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
 
         maintain_min_depth(p);
     }
+}
 
-    assert(
-        r_p == NULL
-        || (r_p->parent == p && r_p->delta_ref_depth > 0)
-        || (r_p->parent == z && r_p->delta_ref_depth > -z->delta_ref_depth)
-    );
+/**
+ * @brief Executa uma rotação virtual para a direita.
+ * 
+ * Descrito em [WDS06], seção 6.5.
+ * 
+ * @param multiset o conjunto.
+ * @param v o filho esquerdo de p na árvore de referência.
+ * @param p o nó sendo rotacionado na árvore de referência.
+ */
+void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
+    assert(v != NULL);
+    assert(p != NULL);
 
+    assert(ref_parent(multiset, v) == p);
+    assert(v == ref_left_child(multiset, p));
+
+    // Garante que o filho direito de v é o preferido e que v é o filho
+    // preferido de p.
+    prepare_virtual_right_rotation(multiset, v, p);
+
+    // Modifica as profundidades dos nós apropriados de acordo com a rotação
+    adjust_ref_depths_right(v, p);
+    
     // Corrige as cores
     color color_p = p->color;
     v->color = color_p;
@@ -1074,22 +1107,27 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
 
     switch_preferred(v);
     switch_preferred(v);
+
     maintain_root(multiset, v);
 
     assert(ref_right_child(multiset, v) == p);
-    assert(ref_left_child(multiset, v) == l_v);
     assert(ref_parent(multiset, p) == v);
-    assert(ref_right_child(multiset, p) == r_p);
 }
 
-void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
-    assert(v != NULL);
-    assert(p != NULL);
-    assert(ref_parent(multiset, v) == p);
-    assert(v == ref_right_child(multiset, p));
-
-    // Garante que o filho esquerdo de v é o preferido e que v é o filho
-    // preferido de p.
+/**
+ * @brief Prepara a MST para uma rotação virtual à esquerda.
+ * 
+ * Descrito em [WDS06], seção 6.5.
+ * 
+ * @param multiset a MST.
+ * @param v o filho direito de p na árvore de referência.
+ * @param p o nó sendo rotacionado na árvore de referência.
+ */
+inline static void prepare_virtual_left_rotation(
+    tree_multiset* multiset,
+    node* v,
+    node* p
+) {
     node* l = ref_left_child(multiset, v);
     if (l == NULL || !l->is_splay_root) {
         switch_with_direction(v, LTR);
@@ -1106,8 +1144,16 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
     assert(!v->is_splay_root);
 
     maintain_root(multiset, p);
+}
 
-    // Modifica as profundidades dos nós apropriados de acordo com a rotação    
+/**
+ * @brief Altera as profundidades dos nós na árvore de referência de forma a
+ *        simular uma rotação à esquerda.
+ * 
+ * @param v filho direito de p na árvore de referência.
+ * @param p nó sendo rotacionado na árvore de referência.
+ */
+inline static void adjust_ref_depths_left(node* v, node* p) {
     add_ref_depth(v, -1);
     add_ref_depth(p, 1);
 
@@ -1133,12 +1179,30 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 
         maintain_min_depth(p);
     }
+}
 
-    assert(
-        l_p == NULL
-        || (l_p->parent == p && l_p->delta_ref_depth > 0)
-        || (l_p->parent == x && l_p->delta_ref_depth > -x->delta_ref_depth)
-    );
+/**
+ * @brief Executa uma rotação virtual para a esquerda.
+ * 
+ * Descrito em [WDS06], seção 6.5.
+ * 
+ * @param multiset o conjunto.
+ * @param v o filho direito de p na árvore de referência.
+ * @param p o nó sendo rotacionado na árvore de referência.
+ */
+void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
+    assert(v != NULL);
+    assert(p != NULL);
+    
+    assert(ref_parent(multiset, v) == p);
+    assert(v == ref_right_child(multiset, p));
+
+    // Garante que o filho esquerdo de v é o preferido e que v é o filho
+    // preferido de p.
+    prepare_virtual_left_rotation(multiset, v, p);
+
+    // Modifica as profundidades dos nós apropriados de acordo com a rotação
+    adjust_ref_depths_left(v, p);
 
     // Corrige as cores
     color color_p = p->color;
@@ -1147,24 +1211,38 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 
     switch_preferred(v);
     switch_preferred(v);
+
     maintain_root(multiset, v);
 
     assert(ref_left_child(multiset, v) == p);
-    assert(ref_right_child(multiset, v) == r_v);
     assert(ref_parent(multiset, p) == v);
-    assert(ref_left_child(multiset, p) == l_p);
 }
 
-bool is_red(node* v) {
+/**
+ * @return verdadeiro se o nó dado é vermelho na árvore de referência.
+ */
+inline static bool is_red(node* v) {
     return v != NULL && v->color == RED;
 }
 
-bool is_black(node* v) {
+/**
+ * @return verdadeiro se o nó dado é preto na árvore de referência.
+ */
+inline static bool is_black(node* v) {
     return v == NULL || v->color == BLACK;
 }
 
-void virtual_rebalance(tree_multiset* multiset, node* root) {
-    node* current = root;
+/**
+ * @brief Rebalanceia a árvore de referência após uma inserção.
+ * 
+ * Implementa as regras de uma árvore rubro-negra esquerdista.
+ * 
+ * @param multiset a MST.
+ * @param start o nó a partir do qual começar a rebalancear (de cima para
+ *              baixo).
+ */
+void virtual_rebalance(tree_multiset* multiset, node* start) {
+    node* current = start;
 
     while (current != NULL) {
         node* x = ref_left_child(multiset, current);
@@ -1195,6 +1273,7 @@ void virtual_rebalance(tree_multiset* multiset, node* root) {
 
         node* parent = ref_parent(multiset, current);
 
+        // Mantém a raíz preta
         if (parent == NULL) {
             current->color = BLACK;
             break;
@@ -1204,7 +1283,13 @@ void virtual_rebalance(tree_multiset* multiset, node* root) {
     }
 }
 
-node* make_node(element_t value) {
+/**
+ * @brief Constrói um nó-folha com a chave dada e count = 1.
+ * 
+ * @param key chave do nó.
+ * @return 
+ */
+node* make_node(element_t key) {
     node* v = (node*) malloc(sizeof(node));
 
     if (v == NULL) {
@@ -1212,7 +1297,7 @@ node* make_node(element_t value) {
         exit(-1);
     }
 
-    v->key = value;
+    v->key = key;
     v->count = 1;
     v->left = NULL;
     v->right = NULL;
@@ -1221,20 +1306,10 @@ node* make_node(element_t value) {
     v->delta_ref_depth = 1;
     v->delta_min_depth = 0;
     v->color = RED;
+
     return v;
 }
 
-/**
- * @brief Insere um valor em um multiset dado.
- * 
- * A complexidade dessa operação é garantida ser O(log n) (amortizado).
- * 
- * @param multiset o conjunto no qual inserir o valor.
- * @param elem o valor a inserir.
- * 
- * @return um ponteiro para o multiset modificado. Pode ser diferente do
- *         parâmetro fornecido, e pode ser NULL em caso de falha.
- */
 void multiset_insert(tree_multiset* multiset, element_t elem) {
     if (multiset->root == NULL) {
         multiset->root = make_node(elem);

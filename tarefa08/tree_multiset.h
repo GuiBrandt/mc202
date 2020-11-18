@@ -33,7 +33,7 @@ tree_multiset* multiset_init() __attribute_malloc__;
 /**
  * @brief Insere um valor em um multiset dado.
  * 
- * A complexidade dessa operação é garantida ser O(log n) (amortizado).
+ * A complexidade dessa operação é garantida ser O(log n) amortizado.
  * 
  * @param multiset o conjunto no qual inserir o valor.
  * @param elem o valor a inserir.
@@ -46,7 +46,7 @@ void multiset_insert(tree_multiset* multiset, element_t elem);
 /**
  * @brief Conta o número de ocorrências de um valor em um multiset dado.
  * 
- * A complexidade dessa operação é garantida ser O(log n) (amortizado).
+ * A complexidade dessa operação é garantida ser O(log n) amortizado.
  * 
  * @param multiset o conjunto em questão.
  * @param elem o elemento sendo contado.
