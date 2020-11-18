@@ -62,11 +62,11 @@ typedef struct tree_multiset_node {
 
     // Diferença de profundidade do nó na árvore de referência em relação ao
     // pai na árvore multi-splay.
-    int delta_ref_depth;
+    int_fast16_t delta_ref_depth;
 
     // Diferença de valor de ref_depth mínimo na subárvore-splay do nó em
     // relação ao pai.
-    int delta_min_depth;
+    int_fast16_t delta_min_depth;
 
     // Determina se a conexão com o nó pai é tracejada (true) ou sólida
     // (false). Uma conexão tracejada significa que este nó é raíz de uma
@@ -76,6 +76,10 @@ typedef struct tree_multiset_node {
     // Cor do nó na árvore de referência
     color color : 1;
 } node;
+
+struct tree_multiset {
+    node* root;
+};
 
 /**
  * @brief Corrige o valor auxiliar delta_min_depth para um nó após alguma
@@ -579,6 +583,18 @@ void switch_with_direction(node* y, direction dir) {
 }
 
 /**
+ * @brief Corrige o ponteiro da raíz de uma árvore.
+ * 
+ * @param multiset ponteiro para a árvore.
+ * @param candidate nó que possivelmente se tornou a raíz da árvore.
+ */
+inline static void maintain_root(tree_multiset* multiset, node* candidate) {
+    if (candidate->parent == NULL) {
+        multiset->root = candidate;
+    }
+}
+
+/**
  * @brief Encontra o nó com menor profundidade na árvore de referência em uma
  *        árvore multi-splay com raíz dada.
  * 
@@ -605,7 +621,6 @@ node* ref_topmost(node* root) {
             
         if (relative_min_depth_left < relative_min_depth_right) {
             current = current->left;
-
         } else {
             assert(root->right != NULL);
             assert(
@@ -618,22 +633,6 @@ node* ref_topmost(node* root) {
     }
 
     return current;
-}
-
-struct tree_multiset {
-    node* root;
-};
-
-/**
- * @brief Corrige o ponteiro da raíz de uma árvore.
- * 
- * @param multiset ponteiro para a árvore.
- * @param candidate nó que possivelmente se tornou a raíz da árvore.
- */
-inline static void maintain_root(tree_multiset* multiset, node* candidate) {
-    if (candidate->parent == NULL) {
-        multiset->root = candidate;
-    }
 }
 
 /**
@@ -716,19 +715,11 @@ node* ref_parent(tree_multiset* multiset, node* v) {
     switch_preferred(v);
     maintain_root(multiset, v);
 
-    if (
-        v->left != NULL
-        && !v->left->is_splay_root
-        && v->left->delta_ref_depth == -1
-    ) {
+    if (v->left != NULL && v->left->delta_ref_depth == -1) {
         return v->left;
     }
     
-    if (
-        v->right != NULL
-        && !v->right->is_splay_root
-        && v->right->delta_ref_depth == -1
-    ) {
+    if (v->right != NULL && v->right->delta_ref_depth == -1) {
         return v->right;
     }
 
@@ -856,6 +847,7 @@ node* successor_on_splay(node* root, element_t key, int* depth) {
     return NULL;
 }
 
+// Tamanho máximo da stack de trocas de filho preferido para um percurso.
 #define SWITCH_STACK_MAX 256
 
 /**
@@ -899,7 +891,7 @@ node* find_and_record_switches(
         // distintos na árvore, o que certamente não é possível usando valores
         // de 64 bits.
         if (*stack_p >= SWITCH_STACK_MAX) {
-            fprintf(stderr, "Erro fatal: Stack Overflow.");
+            fprintf(stderr, "Erro fatal: Stack Overflow.\n");
         }
 
         // A troca acontece no predecessor ou no sucessor do valor buscado na
@@ -931,7 +923,10 @@ node* find_and_record_switches(
             && !current->is_splay_root
         );
 
-        if (current != NULL && (current->key != key || current->is_splay_root)) {
+        if (
+            current != NULL
+            && (current->key != key || current->is_splay_root)
+        ) {
             (*stack_p)++;
         }
     }
@@ -994,7 +989,7 @@ size_t multiset_count(tree_multiset* multiset, element_t elem) {
     return found->count;
 }
 
-void add_ref_depth(node* v, int s) {
+inline static void add_ref_depth(node* v, int s) {
     v->delta_ref_depth += s;
 
     if (v->left != NULL) {
@@ -1213,7 +1208,7 @@ node* make_node(element_t value) {
     node* v = (node*) malloc(sizeof(node));
 
     if (v == NULL) {
-        fprintf(stderr, "Erro fatal: Out of memory.");
+        fprintf(stderr, "Erro fatal: Out of memory.\n");
         exit(-1);
     }
 
