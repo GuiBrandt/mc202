@@ -148,7 +148,7 @@ inline static void maintain_auxiliary_values(node* p, node* q, node* y) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-void maintain_parents(node* o, node* p, node* q, node* y) {
+inline static void maintain_parents(node* o, node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -398,7 +398,6 @@ node* ref_left_parent(node* y) {
  * 
  * @return o nó do sucessor.
  */
-
 node* ref_right_parent(node* y) {
     assert(y != NULL);
 
@@ -501,6 +500,7 @@ inline static void prepare_switch(
  * 
  * @param y nó para o qual trocar o filho preferido (!= NULL).
  */
+void switch_preferred(node* y) __attribute__((hot));
 void switch_preferred(node* y) {
     node *x, *z, *l, *r;
     prepare_switch(y, &x, &z, &l, &r);
@@ -551,7 +551,12 @@ void switch_with_direction(node* y, direction dir) {
     node *x, *z, *l, *r;
     prepare_switch(y, &x, &z, &l, &r);
 
-    assert(!l || !r || (l->is_splay_root == (dir != LTR) && r->is_splay_root == (dir != RTL)));
+    assert(
+        l == NULL
+        || r == NULL
+        || (l->is_splay_root == (dir != LTR)
+            && r->is_splay_root == (dir != RTL))
+    );
 
     if (l != NULL) {
         l->is_splay_root = (dir == LTR);
@@ -612,101 +617,19 @@ node* ref_topmost(node* root) {
     }
 }
 
-/**
- * @brief Encontra a raíz da árvore splay de um nó dado.
- * 
- * @param v nó dado (!= NULL).
- * @param depth ponteiro de saída para a profundidade relativa do nó
- *              encontrado na árvore de referência. Deve ser previamente
- *              incializado.
- * 
- * @return o nó raíz da árvore splay correspondente.
- */
-node* find_splay_root(node* v, int* depth) {
-    assert(v != NULL);
-
-    node* r = v;
-
-    while (!r->is_splay_root) {
-        *depth -= r->delta_ref_depth;
-        r = r->parent;
-    }
-
-    return r;
-}
-
-/**
- * @brief Encontra o pai esquerdo de um nó na árvore (ignorando os caminhos
- *        preferidos).
- * 
- * @param root nó raíz de uma árvore splay.
- * @param depth ponteiro de saída para a profundidade relativa do nó
- *              encontrado na árvore de referência. Deve ser previamente
- *              incializado.
- * 
- * @return o nó do pai esquerdo do nó dado.
- */
-node* left_parent(node* root, int* depth) {
-    assert(root != NULL);
-
-    node* current = root;
-
-    while (current->parent != NULL) {
-        *depth -= current->delta_ref_depth;
-
-        if (current->parent->right == current) {
-            return current->parent;
-        }
-    
-        current = current->parent;
-    }
-
-    return NULL;
-}
-
-/**
- * @brief Encontra o pai direito de um nó na árvore (ignorando os caminhos
- *        preferidos).
- * 
- * @param root nó raíz de uma árvore splay.
- * @param depth ponteiro de saída para a profundidade relativa do nó
- *              encontrado na árvore de referência. Deve ser previamente
- *              incializado.
- * 
- * @return o nó do pai direito do nó dado.
- */
-node* right_parent(node* root, int* depth) {
-    node* current = root;
-
-    while (current->parent != NULL) {
-        *depth -= current->delta_ref_depth;
-
-        if (current->parent->left == current) {
-            return current->parent;
-        }
-    
-        current = current->parent;
-    }
-
-    return NULL;
-}
-
 struct tree_multiset {
     node* root;
 };
 
 /**
- * @brief Troca o caminho preferido para um nó mantendo o ponteiro da raíz de
- *        um conjunto atualizado. 
+ * @brief Corrige o ponteiro da raíz de uma árvore.
  * 
- * @param multiset o conjunto.
- * @param y o nó cujo caminho preferido será trocado.
+ * @param multiset ponteiro para a árvore.
+ * @param candidate nó que possivelmente se tornou a raíz da árvore.
  */
-void switch_and_maintain_root(tree_multiset* multiset, node* y) {
-    switch_preferred(y);
-
-    if (y->parent == NULL) {
-        multiset->root = y;
+inline static void maintain_root(tree_multiset* multiset, node* candidate) {
+    if (candidate->parent == NULL) {
+        multiset->root = candidate;
     }
 }
 
@@ -722,7 +645,7 @@ void switch_and_maintain_root(tree_multiset* multiset, node* y) {
  */
 node* ref_left_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    switch_and_maintain_root(multiset, v);
+    switch_preferred(v);
     
     node* t_l = v->left != NULL && v->left->delta_ref_depth < 0
         ? v->left->right
@@ -732,11 +655,13 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
 
     if (t_l != NULL) {
         l = ref_topmost(t_l);
-        switch_and_maintain_root(multiset, l);
-        switch_and_maintain_root(multiset, l);
+        switch_preferred(l);
+        switch_preferred(l);
     }
 
-    switch_and_maintain_root(multiset, v);
+    switch_preferred(v);
+
+    maintain_root(multiset, v);
 
     return l;
 }
@@ -753,7 +678,7 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
  */
 node* ref_right_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    switch_and_maintain_root(multiset, v);
+    switch_preferred(v);
 
     node* t_r = v->right != NULL && v->right->delta_ref_depth < 0
         ? v->right->left
@@ -763,11 +688,12 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
 
     if (t_r != NULL) {
         r = ref_topmost(t_r);
-        switch_and_maintain_root(multiset, r);
-        switch_and_maintain_root(multiset, r);
+        switch_preferred(r);
+        switch_preferred(r);
     }
 
-    switch_and_maintain_root(multiset, v);
+    switch_preferred(v);
+    maintain_root(multiset, v);
 
     return r;
 }
@@ -783,8 +709,9 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
  * @return o nó do pai na árvore de referência.
  */
 node* ref_parent(tree_multiset* multiset, node* v) {
-    switch_and_maintain_root(multiset, v);
-    switch_and_maintain_root(multiset, v);
+    switch_preferred(v);
+    switch_preferred(v);
+    maintain_root(multiset, v);
 
     if (
         v->left != NULL
@@ -1031,7 +958,7 @@ node* multi_splay(tree_multiset* multiset, element_t key) {
     }
 
     while (stack_p >= 0) {
-        switch_and_maintain_root(multiset, stack[stack_p--]);
+        switch_preferred(stack[stack_p--]);
     }
 
     for (
@@ -1042,7 +969,8 @@ node* multi_splay(tree_multiset* multiset, element_t key) {
         assert(!backtrack->is_splay_root);
     }
 
-    switch_and_maintain_root(multiset, found);
+    switch_preferred(found);
+    maintain_root(multiset, found);
 
     return found;
 }
@@ -1106,9 +1034,7 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
 
     assert(!v->is_splay_root);
 
-    if (p->parent == NULL) {
-        multiset->root = p;
-    }
+    maintain_root(multiset, p);
 
     // Modifica as profundidades dos nós apropriados de acordo com a rotação    
     add_ref_depth(v, -1);
@@ -1148,8 +1074,9 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     v->color = color_p;
     p->color = RED;
 
-    switch_and_maintain_root(multiset, v);
-    switch_and_maintain_root(multiset, v);
+    switch_preferred(v);
+    switch_preferred(v);
+    maintain_root(multiset, v);
 
     assert(ref_right_child(multiset, v) == p);
     assert(ref_left_child(multiset, v) == l_v);
@@ -1180,9 +1107,7 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 
     assert(!v->is_splay_root);
 
-    if (p->parent == NULL) {
-        multiset->root = p;
-    }
+    maintain_root(multiset, p);
 
     // Modifica as profundidades dos nós apropriados de acordo com a rotação    
     add_ref_depth(v, -1);
@@ -1221,6 +1146,10 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
     color color_p = p->color;
     v->color = color_p;
     p->color = RED;
+
+    switch_preferred(v);
+    switch_preferred(v);
+    maintain_root(multiset, v);
 
     assert(ref_left_child(multiset, v) == p);
     assert(ref_right_child(multiset, v) == r_v);
