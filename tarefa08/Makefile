@@ -1,19 +1,12 @@
-COPTFLAGS = -Ofast -DNDEBUG -march=native  -Winline -flto -freorder-blocks-and-partition -fstrict-aliasing -fwhole-program
-CFLAGS = -std=c99 -Wall -Werror=vla -DNDEBUG
-LDFLAGS = -lm
+COPTFLAGS = -std=c99 -Wall -Werror -Werror=vla -g  -ftest-coverage -fprofile-arcs -O0
+LDFLAGS = -lm -lgcov
 
-SOURCES = tree_multiset.c listas_legais.c
-PROFILES = tree_multiset.gcda listas_legais.gcda
-
-.PHONY: all clean debug release memcheck test coverage
+.PHONY: all clean memcheck test coverage
 
 all: listas_legais
 
-listas_legais: $(PROFILES) $(SOURCES)
-	$(CC) $(CFLAGS) $(COPTFLAGS) -fprofile-use $(SOURCES) -o listas_legais $(LDFLAGS)
-
-debug: $(SOURCES)
-	$(CC) $(CFLAGS) -g -ftest-coverage -fprofile-arcs $^ -o listas_legais $(LDFLAGS) -lgcov
+listas_legais: tree_multiset.c listas_legais.c
+	$(CC) $(CFLAGS) $^ -o listas_legais $(LDFLAGS)
 
 clean:
 	rm -f listas_legais
@@ -21,19 +14,12 @@ clean:
 	rm -f *.gcno
 	rm -f *.gcda
 
-memcheck: debug
+memcheck: listas_legais
 	valgrind --leak-check=full ./listas_legais < ./testes/listas_legais8.in
 
-$(PROFILES):
-	$(CC) $(CFLAGS) $(COPTFLAGS) -fprofile-arcs $(SOURCES) -o listas_legais $(LDFLAGS)
-	./listas_legais < ./testes/listas_legais10.in > /dev/null
-	valgrind --tool=callgrind --cache-sim=yes --dump-instr=yes --branch-sim=yes ./listas_legais < ./testes/listas_legais8.in > /dev/null
-	callgrind_annotate --auto=yes
+test: listas_legais
+	python3 testar.py
 
-test: debug
-	./listas_legais < ./testes/listas_legais10.in > ./testes/listas_legais10.out
-	diff ./testes/listas_legais10.out ./testes/listas_legais10.res
-
-coverage: debug test
+coverage: test
 	mkdir -p coverage
 	gcovr -r . --xml -o coverage/coverage.xml

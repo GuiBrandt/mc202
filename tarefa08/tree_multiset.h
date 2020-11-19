@@ -55,6 +55,14 @@ void multiset_insert(tree_multiset* multiset, element_t key);
  */
 size_t multiset_count(tree_multiset* multiset, element_t key);
 
+/**
+ * @brief Obtém o número de elementos que precisam ser removidos do conjunto
+ *        para que ele caracterize uma lista legal.
+ * 
+ * @param multiset o conjunto.
+ * 
+ * @return o número de remoções necessárias para atender o critério.
+ */
 size_t multiset_diff_cool(tree_multiset* multiset);
 
 /**
