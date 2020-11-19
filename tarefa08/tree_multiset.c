@@ -93,7 +93,7 @@ struct tree_multiset {
  * 
  * @param root nó envolvido na rotação.
  */
-void maintain_min_depth(node* root) {
+inline extern void maintain_min_depth(node* root) {
     assert(root != NULL);
 
     int max = 0;
@@ -125,7 +125,7 @@ void maintain_min_depth(node* root) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-void maintain_auxiliary_values(node* p, node* q, node* y) {
+inline extern void maintain_auxiliary_values(node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -156,7 +156,7 @@ void maintain_auxiliary_values(node* p, node* q, node* y) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-void maintain_parents(node* o, node* p, node* q, node* y) {
+inline extern void maintain_parents(node* o, node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -277,10 +277,10 @@ void rotate_right(node* p) {
  * @param subject nó sendo rotacionado.
  * @param root nó-pai desejado ao fim do splay.
  */
-void splay(node* subject, node* root)
+inline extern void splay(node* subject, node* root)
     __attribute__((hot));
 
-void splay(node* subject, node* root) {
+inline extern void splay(node* subject, node* root) {
     while (subject->parent != root && !subject->is_splay_root) {
         node* parent = subject->parent;
         node* grandparent = parent->is_splay_root ? NULL : parent->parent;
@@ -364,7 +364,7 @@ void splay(node* subject, node* root) {
  * @return verdadeiro se é possível que p seja um antecessor de y ou contenha
  *         um antecessor de y na árvore de referência em sua subárvore.
  */
-bool is_ref_parent_candidate(node* p, int depth) {
+inline extern bool is_ref_parent_candidate(node* p, int depth) {
     // delta_ref_depth - delta_min_depth = min_depth relativo a y, se for maior
     // ou igual a 0, não existem nós com profundidade menor que y na subárvore,
     // i.e. não existe pai esquerdo.
@@ -381,7 +381,7 @@ bool is_ref_parent_candidate(node* p, int depth) {
  * 
  * @return o nó do predecessor.
  */
-node* ref_left_parent(node* y) {
+inline extern node* ref_left_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->left;
@@ -428,7 +428,7 @@ node* ref_left_parent(node* y) {
  * 
  * @return o nó do sucessor.
  */
-node* ref_right_parent(node* y) {
+inline extern node* ref_right_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->right;
@@ -471,7 +471,7 @@ node* ref_right_parent(node* y) {
  *          subárvore esquerda de y na árvore de referência.
  * @param r idem l, mas para a subárvore direita de y na árvore de referência.
  */
-void prepare_switch(
+inline extern void prepare_switch(
     node* y,
     node** x,
     node** z,
@@ -627,7 +627,7 @@ void switch_with_direction(node* y, direction dir) {
  * @param multiset ponteiro para a árvore.
  * @param candidate nó que possivelmente se tornou a raíz da árvore.
  */
-void maintain_root(tree_multiset* multiset, node* candidate) {
+inline extern void maintain_root(tree_multiset* multiset, node* candidate) {
     if (candidate->parent == NULL) {
         multiset->root = candidate;
     }
