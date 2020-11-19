@@ -93,7 +93,7 @@ struct tree_multiset {
  * 
  * @param root nó envolvido na rotação.
  */
-inline extern void maintain_min_depth(node* root) {
+void maintain_min_depth(node* root) {
     assert(root != NULL);
 
     int max = 0;
@@ -125,7 +125,7 @@ inline extern void maintain_min_depth(node* root) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-inline extern void maintain_auxiliary_values(node* p, node* q, node* y) {
+void maintain_auxiliary_values(node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -156,7 +156,7 @@ inline extern void maintain_auxiliary_values(node* p, node* q, node* y) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-inline extern void maintain_parents(node* o, node* p, node* q, node* y) {
+void maintain_parents(node* o, node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -277,10 +277,10 @@ void rotate_right(node* p) {
  * @param subject nó sendo rotacionado.
  * @param root nó-pai desejado ao fim do splay.
  */
-inline extern void splay(node* subject, node* root)
+void splay(node* subject, node* root)
     __attribute__((hot));
 
-inline extern void splay(node* subject, node* root) {
+void splay(node* subject, node* root) {
     while (subject->parent != root && !subject->is_splay_root) {
         node* parent = subject->parent;
         node* grandparent = parent->is_splay_root ? NULL : parent->parent;
@@ -364,7 +364,7 @@ inline extern void splay(node* subject, node* root) {
  * @return verdadeiro se é possível que p seja um antecessor de y ou contenha
  *         um antecessor de y na árvore de referência em sua subárvore.
  */
-inline extern bool is_ref_parent_candidate(node* p, int depth) {
+bool is_ref_parent_candidate(node* p, int depth) {
     // delta_ref_depth - delta_min_depth = min_depth relativo a y, se for maior
     // ou igual a 0, não existem nós com profundidade menor que y na subárvore,
     // i.e. não existe pai esquerdo.
@@ -381,15 +381,13 @@ inline extern bool is_ref_parent_candidate(node* p, int depth) {
  * 
  * @return o nó do predecessor.
  */
-inline extern node* ref_left_parent(node* y) {
+node* ref_left_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->left;
     
     // Acumulador de profundidade relativa à subárvore esquerda de y.
     int depth = 0;
-
-    current = (node*) ((size_t) current * is_ref_parent_candidate(current, depth));
 
     node* pred = NULL;
     while (is_ref_parent_candidate(current, depth)) {
@@ -428,13 +426,11 @@ inline extern node* ref_left_parent(node* y) {
  * 
  * @return o nó do sucessor.
  */
-inline extern node* ref_right_parent(node* y) {
+node* ref_right_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->right;
     int depth = 0;
-
-    current = (node*) ((size_t) current * is_ref_parent_candidate(current, depth));
 
     node* succ = NULL;
     while (is_ref_parent_candidate(current, depth)) {
@@ -453,7 +449,7 @@ inline extern node* ref_right_parent(node* y) {
         } else {
             current = current->left;
         }
-    }
+    };
 
     return succ;
 }
@@ -471,7 +467,7 @@ inline extern node* ref_right_parent(node* y) {
  *          subárvore esquerda de y na árvore de referência.
  * @param r idem l, mas para a subárvore direita de y na árvore de referência.
  */
-inline extern void prepare_switch(
+void prepare_switch(
     node* y,
     node** x,
     node** z,
@@ -532,7 +528,8 @@ inline extern void prepare_switch(
  * 
  * @param y nó para o qual trocar o filho preferido (!= NULL).
  */
-void switch_preferred(node* y) __attribute__((hot));
+void switch_preferred(node* y)
+    __attribute__((hot));
 
 void switch_preferred(node* y) {
     node *x, *z, *l, *r;
@@ -627,7 +624,7 @@ void switch_with_direction(node* y, direction dir) {
  * @param multiset ponteiro para a árvore.
  * @param candidate nó que possivelmente se tornou a raíz da árvore.
  */
-inline extern void maintain_root(tree_multiset* multiset, node* candidate) {
+void maintain_root(tree_multiset* multiset, node* candidate) {
     if (candidate->parent == NULL) {
         multiset->root = candidate;
     }
@@ -686,7 +683,7 @@ node* ref_topmost(node* root) {
  */
 node* ref_left_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    switch_preferred(v);
+    switch_preferred_twice(v);
     
     node* t_l = v->left != NULL && v->left->delta_ref_depth < 0
         ? v->left->right
@@ -697,8 +694,6 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
     if (t_l != NULL) {
         l = ref_topmost(t_l);
     }
-
-    switch_preferred(v);
 
     maintain_root(multiset, v);
 
@@ -717,7 +712,7 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
  */
 node* ref_right_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    switch_preferred(v);
+    switch_preferred_twice(v);
 
     node* t_r = v->right != NULL && v->right->delta_ref_depth < 0
         ? v->right->left
@@ -729,7 +724,6 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
         r = ref_topmost(t_r);
     }
 
-    switch_preferred(v);
     maintain_root(multiset, v);
 
     return r;
@@ -1348,6 +1342,7 @@ void destroy_node(node* root) {
  */
 node* make_node(element_t key) {
     node* v = (node*) xmalloc(sizeof(node));
+
     v->key = key;
     v->count = 1;
     v->diff_cool = key > 1 ? 1 : 0;
@@ -1358,6 +1353,7 @@ node* make_node(element_t key) {
     v->delta_ref_depth = 1;
     v->delta_min_depth = 0;
     v->color = RED;
+    
     return v;
 }
 
@@ -1409,6 +1405,14 @@ node* find_with_parents(
     return current;
 }
 
+/**
+ * @brief Corrige o valor de diferença-legal para um nó na árvore.
+ * 
+ * Essa função assume que os valores de diferença-legal para as subárvores do
+ * nó dado estão corretos.
+ * 
+ * @param v nó cujo valor de diferença-legal deve ser corrigido.
+ */
 void maintain_diff_cool(node* v) {    
     if (v->count >= v->key) {
         v->diff_cool = v->count - v->key;
@@ -1425,6 +1429,13 @@ void maintain_diff_cool(node* v) {
     }
 }
 
+/**
+ * @brief Propaga uma alteração no valor da diferença-legal de um nó para cima
+ *        na árvore multi-splay.
+ * 
+ * @param found nó cujo valor de diferença-legal mudou (possivelmente um nó que
+ *              acaba de ser inserido na árvore).
+ */
 void propagate_diff_cool(node* found) {
     node* current = found->parent;
 
@@ -1446,15 +1457,6 @@ void propagate_diff_cool(node* found) {
  * @param z_depth a profundidade de z na árvore de referência.
  * @param created nó a ser inserido.
  */
-void insert_with_parents(
-    tree_multiset* multiset,
-    node* x,
-    int x_depth,
-    node* z,
-    int z_depth,
-    node* created
-) __attribute__((hot));
-
 void insert_with_parents(
     tree_multiset* multiset,
     node* x,
