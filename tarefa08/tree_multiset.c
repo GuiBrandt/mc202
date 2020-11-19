@@ -194,6 +194,9 @@ inline static void maintain_parents(node* o, node* p, node* q, node* y) {
  * 
  * @param root o nó sendo rotacionado.
  */
+inline static void rotate_left(node* p)
+    __attribute__((hot));
+
 inline static void rotate_left(node* p) {
     assert(p != NULL);
     assert(p->right != NULL);
@@ -235,6 +238,9 @@ inline static void rotate_left(node* p) {
  * 
  * @param root o nó sendo rotacionado.
  */
+inline static void rotate_right(node* p)
+    __attribute__((hot));
+
 inline static void rotate_right(node* p) {
     assert(p != NULL);
     assert(p->left != NULL);
@@ -271,7 +277,7 @@ inline static void rotate_right(node* p) {
  * @param subject nó sendo rotacionado.
  * @param root nó-pai desejado ao fim do splay.
  */
-void splay(node* subject, node* root) {
+inline void splay(node* subject, node* root) {
     while (subject->parent != root && !subject->is_splay_root) {
         node* parent = subject->parent;
         node* grandparent = parent->is_splay_root ? NULL : parent->parent;
@@ -372,7 +378,7 @@ inline static bool is_ref_parent_candidate(node* p, int depth) {
  * 
  * @return o nó do predecessor.
  */
-node* ref_left_parent(node* y) {
+inline static node* ref_left_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->left;
@@ -380,9 +386,7 @@ node* ref_left_parent(node* y) {
     // Acumulador de profundidade relativa à subárvore esquerda de y.
     int depth = 0;
 
-    if (!is_ref_parent_candidate(current, depth)) {
-        return NULL;
-    }
+    current = (node*) ((size_t) current * is_ref_parent_candidate(current, depth));
 
     node* pred = NULL;
     while (is_ref_parent_candidate(current, depth)) {
@@ -398,6 +402,10 @@ node* ref_left_parent(node* y) {
         // antecessor maior que o atual que esteja acima de y na árvore de
         // referência.
         if (!is_ref_parent_candidate(current->right, depth)) {
+            if (pred != NULL && pred->key > current->key) {
+                return pred;
+            }
+
             current = current->left;
         } else {
             current = current->right;
@@ -417,15 +425,13 @@ node* ref_left_parent(node* y) {
  * 
  * @return o nó do sucessor.
  */
-node* ref_right_parent(node* y) {
+inline static node* ref_right_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->right;
     int depth = 0;
 
-    if (!is_ref_parent_candidate(current, depth)) {
-        return NULL;
-    }
+    current = (node*) ((size_t) current * is_ref_parent_candidate(current, depth));
 
     node* succ = NULL;
     while (is_ref_parent_candidate(current, depth)) {
@@ -436,6 +442,10 @@ node* ref_right_parent(node* y) {
         }
 
         if (!is_ref_parent_candidate(current->left, depth)) {
+            if (succ != NULL && succ->key < current->key) {
+                return succ;
+            }
+
             current = current->right;
         } else {
             current = current->left;
@@ -915,9 +925,7 @@ node* find_and_record_switches(
         // Para estourar esse valor, teríamos que ter mais que 2^128 elementos
         // distintos na árvore, o que certamente não é possível usando valores
         // de 64 bits.
-        if (*stack_p >= SWITCH_STACK_MAX) {
-            fprintf(stderr, "Erro fatal: Stack Overflow.\n");
-        }
+        assert(*stack_p >= SWITCH_STACK_MAX);
 
         // A troca acontece no predecessor ou no sucessor do valor buscado na
         // árvore splay atual, dependendo de qual for mais profundo na árvore
@@ -1298,7 +1306,10 @@ inline static void virtual_rebalance(tree_multiset* multiset, node* start) {
  * @param size número de bytes a serem alocados.
  * @return o ponteiro alocado.
  */
-void* xmalloc(size_t size) {
+inline static void* xmalloc(size_t size)
+    __attribute_malloc__;
+
+inline static void* xmalloc(size_t size) {
     void* ptr = malloc(size);
 
     if (ptr == NULL) {
@@ -1439,6 +1450,15 @@ inline static void insert_with_parents(
     node* z,
     int z_depth,
     node* created
+) __attribute__((hot));
+
+inline static void insert_with_parents(
+    tree_multiset* multiset,
+    node* x,
+    int x_depth,
+    node* z,
+    int z_depth,
+    node* created
 ) {
     node* parent;
     
@@ -1484,8 +1504,8 @@ inline static void insert_with_parents(
     }
 
     propagate_diff_cool(created);
-
     virtual_rebalance(multiset, parent);
+    //multi_splay(multiset, parent->key);
 }
 
 tree_multiset* multiset_init() {
@@ -1538,7 +1558,6 @@ void multiset_insert(tree_multiset* multiset, element_t key) {
         node* created = make_node(key);
         
         insert_with_parents(multiset, x, x_depth, z, z_depth, created);
-        multi_splay(multiset, created->key);
     }
 }
 
