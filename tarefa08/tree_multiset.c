@@ -1565,6 +1565,7 @@ void multiset_insert(tree_multiset* multiset, element_t key) {
 
 void multiset_destroy(tree_multiset* multiset) {
     destroy_node(multiset->root);
+    free(multiset);
 }
 
 size_t multiset_diff_cool(tree_multiset* multiset) {
