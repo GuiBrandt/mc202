@@ -683,7 +683,7 @@ node* ref_topmost(node* root) {
  */
 node* ref_left_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    switch_preferred_twice(v);
+    switch_preferred(v);
     
     node* t_l = v->left != NULL && v->left->delta_ref_depth < 0
         ? v->left->right
@@ -694,6 +694,8 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
     if (t_l != NULL) {
         l = ref_topmost(t_l);
     }
+
+    switch_preferred(v);
 
     maintain_root(multiset, v);
 
@@ -712,7 +714,7 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
  */
 node* ref_right_child(tree_multiset* multiset, node* v) {
     assert(v != NULL);
-    switch_preferred_twice(v);
+    switch_preferred(v);
 
     node* t_r = v->right != NULL && v->right->delta_ref_depth < 0
         ? v->right->left
@@ -723,6 +725,8 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
     if (t_r != NULL) {
         r = ref_topmost(t_r);
     }
+
+    switch_preferred(v);
 
     maintain_root(multiset, v);
 
@@ -928,7 +932,7 @@ node* find_and_record_switches(
         // Para estourar esse valor, teríamos que ter mais que 2^128 elementos
         // distintos na árvore, o que certamente não é possível usando valores
         // de 64 bits.
-        assert(*stack_p >= SWITCH_STACK_MAX);
+        assert(*stack_p < SWITCH_STACK_MAX);
 
         // A troca acontece no predecessor ou no sucessor do valor buscado na
         // árvore splay atual, dependendo de qual for mais profundo na árvore
@@ -1515,7 +1519,7 @@ void insert_with_parents(
 tree_multiset* multiset_init() {
     tree_multiset* multiset = (tree_multiset*) xmalloc(sizeof(tree_multiset));   
     multiset->root = NULL;
-    return multiset;    
+    return multiset;
 }
 
 // Complexidade: O(log^2 n) pior caso       [WDS06, teorema 4.1]
