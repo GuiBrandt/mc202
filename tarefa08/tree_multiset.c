@@ -194,10 +194,10 @@ inline void maintain_parents(node* o, node* p, node* q, node* y) {
  * 
  * @param root o nó sendo rotacionado.
  */
-inline void rotate_left(node* p)
+void rotate_left(node* p)
     __attribute__((hot));
 
-inline void rotate_left(node* p) {
+void rotate_left(node* p) {
     assert(p != NULL);
     assert(p->right != NULL);
 
@@ -238,10 +238,10 @@ inline void rotate_left(node* p) {
  * 
  * @param root o nó sendo rotacionado.
  */
-inline void rotate_right(node* p)
+void rotate_right(node* p)
     __attribute__((hot));
 
-inline void rotate_right(node* p) {
+void rotate_right(node* p) {
     assert(p != NULL);
     assert(p->left != NULL);
 

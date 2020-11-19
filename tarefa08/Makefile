@@ -1,4 +1,4 @@
-CFLAGS = -std=c99 -Wall -Werror=vla -Winline -Ofast -DNDEBUG -march=native -flto -freorder-blocks-and-partition -fstrict-aliasing -fweb -fwhole-program --param large-function-growth=100000000 --param inline-unit-growth=1000
+CFLAGS = -std=c99 -Wall -Werror=vla -Winline -Ofast -DNDEBUG -march=native -flto -freorder-blocks-and-partition -fstrict-aliasing -fweb -fwhole-program
 LDFLAGS = -lm -flto
 
 .PHONY: all clean
