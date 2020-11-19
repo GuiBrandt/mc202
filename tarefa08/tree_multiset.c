@@ -93,7 +93,7 @@ struct tree_multiset {
  * 
  * @param root nó envolvido na rotação.
  */
-inline void maintain_min_depth(node* root) {
+void maintain_min_depth(node* root) {
     assert(root != NULL);
 
     int max = 0;
@@ -125,7 +125,7 @@ inline void maintain_min_depth(node* root) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-inline void maintain_auxiliary_values(node* p, node* q, node* y) {
+void maintain_auxiliary_values(node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -156,7 +156,7 @@ inline void maintain_auxiliary_values(node* p, node* q, node* y) {
  * @param y filho trocado (na rotação direita, o filho direito de q, na
  *          esquerda o filho esquerdo de q).
  */
-inline void maintain_parents(node* o, node* p, node* q, node* y) {
+void maintain_parents(node* o, node* p, node* q, node* y) {
     assert(p != NULL);
     assert(q != NULL);
 
@@ -277,7 +277,10 @@ void rotate_right(node* p) {
  * @param subject nó sendo rotacionado.
  * @param root nó-pai desejado ao fim do splay.
  */
-inline void splay(node* subject, node* root) {
+void splay(node* subject, node* root)
+    __attribute__((hot));
+
+void splay(node* subject, node* root) {
     while (subject->parent != root && !subject->is_splay_root) {
         node* parent = subject->parent;
         node* grandparent = parent->is_splay_root ? NULL : parent->parent;
@@ -361,7 +364,7 @@ inline void splay(node* subject, node* root) {
  * @return verdadeiro se é possível que p seja um antecessor de y ou contenha
  *         um antecessor de y na árvore de referência em sua subárvore.
  */
-inline bool is_ref_parent_candidate(node* p, int depth) {
+bool is_ref_parent_candidate(node* p, int depth) {
     // delta_ref_depth - delta_min_depth = min_depth relativo a y, se for maior
     // ou igual a 0, não existem nós com profundidade menor que y na subárvore,
     // i.e. não existe pai esquerdo.
@@ -378,7 +381,7 @@ inline bool is_ref_parent_candidate(node* p, int depth) {
  * 
  * @return o nó do predecessor.
  */
-inline node* ref_left_parent(node* y) {
+node* ref_left_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->left;
@@ -425,7 +428,7 @@ inline node* ref_left_parent(node* y) {
  * 
  * @return o nó do sucessor.
  */
-inline node* ref_right_parent(node* y) {
+node* ref_right_parent(node* y) {
     assert(y != NULL);
 
     node* current = y->right;
@@ -468,7 +471,7 @@ inline node* ref_right_parent(node* y) {
  *          subárvore esquerda de y na árvore de referência.
  * @param r idem l, mas para a subárvore direita de y na árvore de referência.
  */
-inline void prepare_switch(
+void prepare_switch(
     node* y,
     node** x,
     node** z,
@@ -559,7 +562,13 @@ void switch_preferred(node* y) {
     maintain_min_depth(y);
 }
 
-inline void switch_preferred_twice(node* y) {
+/**
+ * @brief Troca o filho preferido de um nó duas vezes (i.e. não troca). Isso é
+ *        útil apenas para reestruturação da árvore.
+ * 
+ * @param y o nó.
+ */
+void switch_preferred_twice(node* y) {
     node *x, *z, *l, *r;
     prepare_switch(y, &x, &z, &l, &r);
 }
@@ -618,7 +627,7 @@ void switch_with_direction(node* y, direction dir) {
  * @param multiset ponteiro para a árvore.
  * @param candidate nó que possivelmente se tornou a raíz da árvore.
  */
-inline void maintain_root(tree_multiset* multiset, node* candidate) {
+void maintain_root(tree_multiset* multiset, node* candidate) {
     if (candidate->parent == NULL) {
         multiset->root = candidate;
     }
@@ -687,7 +696,6 @@ node* ref_left_child(tree_multiset* multiset, node* v) {
 
     if (t_l != NULL) {
         l = ref_topmost(t_l);
-        switch_preferred_twice(l);
     }
 
     switch_preferred(v);
@@ -719,7 +727,6 @@ node* ref_right_child(tree_multiset* multiset, node* v) {
 
     if (t_r != NULL) {
         r = ref_topmost(t_r);
-        switch_preferred_twice(r);
     }
 
     switch_preferred(v);
@@ -1015,7 +1022,7 @@ node* multi_splay(tree_multiset* multiset, element_t key) {
  * @param v nó cuja profundidade deve ser alterada.
  * @param s valor a ser adicionado à profundidade (pode ser negativo).
  */
-inline void add_ref_depth(node* v, int s) {
+void add_ref_depth(node* v, int s) {
     assert(v != NULL);
 
     v->delta_ref_depth += s;
@@ -1038,7 +1045,7 @@ inline void add_ref_depth(node* v, int s) {
  * @param v o filho esquerdo de p na árvore de referência.
  * @param p o nó sendo rotacionado na árvore de referência.
  */
-inline void prepare_virtual_right_rotation(
+void prepare_virtual_right_rotation(
     tree_multiset* multiset,
     node* v,
     node* p
@@ -1068,7 +1075,7 @@ inline void prepare_virtual_right_rotation(
  * @param v filho esquerdo de p na árvore de referência.
  * @param p nó sendo rotacionado na árvore de referência.
  */
-inline void adjust_ref_depths_right(node* v, node* p) {
+void adjust_ref_depths_right(node* v, node* p) {
     add_ref_depth(v, -1);
     add_ref_depth(p, 1);
 
@@ -1124,8 +1131,6 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
     v->color = color_p;
     p->color = RED;
 
-    switch_preferred_twice(v);
-
     maintain_root(multiset, v);
 
     assert(ref_right_child(multiset, v) == p);
@@ -1141,7 +1146,7 @@ void virtual_rotate_right(tree_multiset* multiset, node* v, node* p) {
  * @param v o filho direito de p na árvore de referência.
  * @param p o nó sendo rotacionado na árvore de referência.
  */
-inline void prepare_virtual_left_rotation(
+void prepare_virtual_left_rotation(
     tree_multiset* multiset,
     node* v,
     node* p
@@ -1171,7 +1176,7 @@ inline void prepare_virtual_left_rotation(
  * @param v filho direito de p na árvore de referência.
  * @param p nó sendo rotacionado na árvore de referência.
  */
-inline void adjust_ref_depths_left(node* v, node* p) {
+void adjust_ref_depths_left(node* v, node* p) {
     add_ref_depth(v, -1);
     add_ref_depth(p, 1);
 
@@ -1227,8 +1232,6 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
     v->color = color_p;
     p->color = RED;
 
-    switch_preferred_twice(v);
-
     maintain_root(multiset, v);
 
     assert(ref_left_child(multiset, v) == p);
@@ -1238,14 +1241,14 @@ void virtual_rotate_left(tree_multiset* multiset, node* v, node* p) {
 /**
  * @return verdadeiro se o nó dado é vermelho na árvore de referência.
  */
-inline bool is_red(node* v) {
+bool is_red(node* v) {
     return v != NULL && v->color == RED;
 }
 
 /**
  * @return verdadeiro se o nó dado é preto na árvore de referência.
  */
-inline bool is_black(node* v) {
+bool is_black(node* v) {
     return v == NULL || v->color == BLACK;
 }
 
@@ -1258,7 +1261,7 @@ inline bool is_black(node* v) {
  * @param start o nó a partir do qual começar a rebalancear (de cima para
  *              baixo).
  */
-inline void virtual_rebalance(tree_multiset* multiset, node* start) {
+void virtual_rebalance(tree_multiset* multiset, node* start) {
     node* current = start;
 
     while (current != NULL) {
@@ -1372,7 +1375,7 @@ node* make_node(element_t key) {
  * @return um ponteiro para o nó encontrado com a chave buscada, ou NULL caso
  *         ele não exista na árvore.
  */
-inline node* find_with_parents(
+node* find_with_parents(
     node* root,
     element_t key,
     node** x,
@@ -1406,7 +1409,7 @@ inline node* find_with_parents(
     return current;
 }
 
-inline void maintain_diff_cool(node* v) {    
+void maintain_diff_cool(node* v) {    
     if (v->count >= v->key) {
         v->diff_cool = v->count - v->key;
     } else {
@@ -1422,7 +1425,7 @@ inline void maintain_diff_cool(node* v) {
     }
 }
 
-inline void propagate_diff_cool(node* found) {
+void propagate_diff_cool(node* found) {
     node* current = found->parent;
 
     while (current != NULL) {
@@ -1443,7 +1446,7 @@ inline void propagate_diff_cool(node* found) {
  * @param z_depth a profundidade de z na árvore de referência.
  * @param created nó a ser inserido.
  */
-inline void insert_with_parents(
+void insert_with_parents(
     tree_multiset* multiset,
     node* x,
     int x_depth,
@@ -1452,7 +1455,7 @@ inline void insert_with_parents(
     node* created
 ) __attribute__((hot));
 
-inline void insert_with_parents(
+void insert_with_parents(
     tree_multiset* multiset,
     node* x,
     int x_depth,

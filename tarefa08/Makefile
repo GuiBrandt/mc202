@@ -1,4 +1,4 @@
-CFLAGS = -std=c99 -Wall -Werror=vla -Winline -Ofast -DNDEBUG -march=native -flto -freorder-blocks-and-partition -fstrict-aliasing -fweb -fwhole-program
+CFLAGS = -std=c99 -Wall -Werror=vla -Winline -Ofast -DNDEBUG -march=native -flto -freorder-blocks-and-partition -fstrict-aliasing -fwhole-program
 LDFLAGS = -lm -flto
 
 .PHONY: all clean
