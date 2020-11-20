@@ -42,17 +42,20 @@ void destroy_queue();
 void enqueue(priority_queue* q, const customer* c);
 
 /**
- * @brief Enfileira um cliente.
+ * @brief Remove e retorna o primeiro da fila.
  * 
  * @param q a fila.
- * @param c o cliente.
+ * 
+ * @return o cliente.
  */
-const customer* pop_first(priority_queue* q);
+customer* dequeue(priority_queue* q);
 
 /**
- * @brief Enfileira um cliente.
+ * @brief Cancela um cliente da fila.
  * 
  * @param q a fila.
- * @param c o cliente.
+ * @param name o nome do cliente.
+ * 
+ * @return o cliente.
  */
-const customer* cancel(priority_queue* q, const char* name);
+customer* cancel(priority_queue* q, const char* name);
