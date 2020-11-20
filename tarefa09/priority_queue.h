@@ -29,6 +29,10 @@ typedef struct customer {
     point dest;
 } customer;
 
+priority_queue* make_queue();
+
+void destroy_queue();
+
 /**
  * @brief Enfileira um cliente.
  * 
