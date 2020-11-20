@@ -2,8 +2,7 @@
  * @file priority_queue.c
  * @author Guilherme G. Brandt (235970)
  * 
- * @brief Implementação de fila de prioridade com remoção com Beap [MS80] e
- *        Trie.
+ * @brief Implementação de fila de prioridade com remoção com Beap [MS80].
  * 
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa09.html
  * 
@@ -11,11 +10,6 @@
  *        Implicit data structures for fast search and update.
  *        Journal of Computer and System Sciences, v. 21, n. 2, p. 236-250,
  *        1980. https://doi.org/10.1016/0022-0000(80)90037-9
- * 
- * [HZW02] HEINZ, Steffen; ZOBEL, Justin; WILLIAMS, Hugh E.
- *         Burst tries: a fast, efficient data structure for string keys.
- *         ACM Transactions on Information Systems (TOIS), v. 20, n. 2,
- *         p. 192-223, 2002. https://doi.org/10.1145/506309.506312
  */
 
 #include "priority_queue.h"
@@ -23,81 +17,16 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 
 #include <assert.h>
 #include <math.h>
 
-void* xmalloc(size_t size) {
-    void* ptr = malloc(size);
-
-    if (ptr == NULL) {
-        fprintf(stderr, "Erro fatal: Out of memory.");
-        exit(-1);
-    }
-
-    return ptr;
-}
-
-typedef struct trie {
-    double value;
-    struct trie* children[26];
-} trie;
-
-trie* make_trie() {
-    trie* t = (trie*) xmalloc(sizeof(trie));
-    memset(t->children, 0, 26 * sizeof(trie*));
-    return t;
-}
-
-trie* trie_next(trie* t, char key) {
-    return t->children[key - 'A'];
-}
-
-trie* trie_next_or_create(trie* t, char c) {
-    int key = c - 'A';
-
-    if (t->children[key] == NULL) {
-        t->children[key] = make_trie();
-    }
-
-    return t->children[key];
-}
-
-void trie_add(trie* t, const char* name, double rating) {
-    while (name[0] != '\0') {
-        t = trie_next_or_create(t, *name);
-        name++;
-    }
-
-    t->value = rating;
-}
-
-double trie_get(trie* t, const char* name) {
-    while (name[0] != '\0') {
-        t = trie_next(t, *name);
-        name++;
-    }
-
-    return t->value;
-}
-
-void destroy_trie(trie* t) {
-    for (int i = 0; i < 26; i++) {
-        if (t->children[i] == NULL) {
-            continue;
-        }
-
-        destroy_trie(t->children[i]);
-    }
-
-    free(t);
-}
+#include "map.h"
+#include "util.h"
 
 struct priority_queue {
     const customer* customers[249];
-    trie* ratings;
+    map* ratings;
     size_t size;
     size_t height;
 };
@@ -261,13 +190,13 @@ priority_queue* make_queue() {
 
     q->size = 0;
     q->height = 0;
-    q->ratings = make_trie();
+    q->ratings = make_map();
 
     return q;
 }
 
 void enqueue(priority_queue* q, const customer* c) {
-    trie_add(q->ratings, c->name, c->rating);
+    map_add(q->ratings, c->name, c->rating);
 
     int n = q->size;
     q->size++;
@@ -297,7 +226,7 @@ customer* dequeue(priority_queue* q) {
 }
 
 customer* cancel(priority_queue* q, const char* name) {
-    double rating = trie_get(q->ratings, name);
+    double rating = map_get(q->ratings, name);
 
     int height;
     int index = find(q, rating, &height);
@@ -312,6 +241,6 @@ customer* cancel(priority_queue* q, const char* name) {
 }
 
 void destroy_queue(priority_queue* q) {
-    destroy_trie(q->ratings);
+    destroy_map(q->ratings);
     free(q);
 }

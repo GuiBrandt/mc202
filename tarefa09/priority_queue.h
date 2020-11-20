@@ -29,9 +29,19 @@ typedef struct customer {
     point dest;
 } customer;
 
+/**
+ * @brief Constrói uma fila de prioridade vazia.
+ * 
+ * Em caso de falha, esta função termina o programa com código de erro -1.
+ * 
+ * @return ponteiro para a fila de prioridade alocada.
+ */
 priority_queue* make_queue();
 
-void destroy_queue();
+/**
+ * @brief Libera a memória alocada para uma fila de prioridade
+ */
+void destroy_queue(priority_queue* q);
 
 /**
  * @brief Enfileira um cliente.
