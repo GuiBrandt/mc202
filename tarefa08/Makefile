@@ -1,5 +1,5 @@
-CFLAGS = -std=c99 -Wall -Werror -Werror=vla -O3
-LDFLAGS = -lm -lgcov
+CFLAGS = -std=c99 -Wall -Werror -Werror=vla -O2
+LDFLAGS = -lm
 
 .PHONY: all clean memcheck test coverage
 
