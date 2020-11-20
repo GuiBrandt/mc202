@@ -1,5 +1,5 @@
-CFLAGS = -std=c99 -Wall -Werror -Werror=vla -g
-LDFLAGS = -lm
+CFLAGS = -std=c99 -Wall -Werror -Werror=vla -g  -ftest-coverage -fprofile-arcs -O0
+LDFLAGS = -lm -lgcov
 
 .PHONY: all clean
 
