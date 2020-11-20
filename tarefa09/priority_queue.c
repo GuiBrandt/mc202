@@ -42,7 +42,7 @@ typedef struct trie {
 
 trie* make_trie() {
     trie* t = (trie*) xmalloc(sizeof(trie));
-    memset(t->children, 0, 26);
+    memset(t->children, 0, 26 * sizeof(trie*));
     return t;
 }
 
@@ -50,8 +50,8 @@ trie* trie_next(trie* t, char key) {
     return t->children[key - 'A'];
 }
 
-trie* trie_next_or_create(trie* t, char key) {
-    key -= 'A';
+trie* trie_next_or_create(trie* t, char c) {
+    int key = c - 'A';
 
     if (t->children[key] == NULL) {
         t->children[key] = make_trie();
@@ -216,8 +216,8 @@ void delete_at(priority_queue* q, int i, int h) {
 
 int find(priority_queue* q, double rating, int* height) {
     int i, h;
-    if (q->size == last(q->height) - 1) {
-        i = q->size;
+    if (q->size - 1 == last(q->height)) {
+        i = q->size - 1;
         h = q->height;
     } else {
         i = last(q->height - 1);
@@ -263,6 +263,8 @@ priority_queue* make_queue() {
 }
 
 void enqueue(priority_queue* q, const customer* c) {
+    trie_add(q->ratings, c->name, c->rating);
+
     int n = q->size;
     q->size++;
 
@@ -277,11 +279,13 @@ void enqueue(priority_queue* q, const customer* c) {
     if (q->size > last(q->height)) {
         q->height++;
     }
-
-    trie_add(q->ratings, c->name, c->rating);
 }
 
 customer* dequeue(priority_queue* q) {
+    if (q->size == 0) {
+        return NULL;
+    }
+
     customer* c = (customer*) q->customers[0];
     delete_at(q, 0, 1);
 
