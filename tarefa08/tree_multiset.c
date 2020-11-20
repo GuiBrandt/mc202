@@ -5,25 +5,15 @@
  * @brief Implementação do ADT de multiset usando uma árvore Splay [ST85]
  *
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa08.html
- * 
- * [ST85] D. D. Sleator e R. E. Tarjan.
- *        Self-Adjusting Binary Search Trees.
- *        Journal of the Association for Computing Machinery, Vol. 32, No. 3,
- *        pp. 652-686, 1985. 
- *        Disponível em https://www.cs.cmu.edu/~sleator/papers/self-adjusting.pdf.
  */
 
 #include "tree_multiset.h"
 
 #include <stdbool.h>
-#include <assert.h>
-
 #include <stdio.h>
-#include <inttypes.h>
-#include <limits.h>
-
-#include <time.h>
 #include <stdlib.h>
+
+#include <assert.h>
 
 /**
  * @brief Estrutura de nó da árvore splay. 
@@ -54,7 +44,7 @@ struct tree_multiset {
 };
 
 /**
- * @brief 
+ * @brief Corrige os ponteiros para os pais dos nós após uma rotação.
  * 
  * @param o pai do nó rotacionado.
  * @param p nó rotacionado.
@@ -271,22 +261,6 @@ void* xmalloc(size_t size) {
 }
 
 /**
- * @brief Libera a memória alocada para um nó e seus filhos.
- * 
- * @param root nó raíz.
- */
-void destroy_node(node* root) {
-    if (root == NULL) {
-        return;
-    }
-    
-    destroy_node(root->left);
-    destroy_node(root->right);
-
-    free(root);
-}
-
-/**
  * @brief Constrói um nó-folha com a chave dada e count = 1.
  * 
  * @param key chave do nó.
@@ -302,6 +276,22 @@ node* make_node(element_t key) {
     v->right = NULL;
     v->parent = NULL;
     return v;
+}
+
+/**
+ * @brief Libera a memória alocada para um nó e seus filhos.
+ * 
+ * @param root nó raíz.
+ */
+void destroy_node(node* root) {
+    if (root == NULL) {
+        return;
+    }
+    
+    destroy_node(root->left);
+    destroy_node(root->right);
+
+    free(root);
 }
 
 /**
@@ -344,6 +334,18 @@ void propagate_diff_cool(node* found) {
     }
 }
 
+/**
+ * @brief Encontra o nó de um elemento fazendo busca na árvore binária.
+ * 
+ * @param root raíz da árvore.
+ * @param key valor sendo procurado.
+ * @param parent ponteiro de saída para o nó pai do nó do valor buscado.
+ * 
+ * Se o valor não estiver presente na árvore, parent recebe o ponteiro para o
+ * nó sob o qual deve-se inserir elemento.
+ * 
+ * @return um ponteiro para o nó encontrado, ou NULL caso não exista.
+ */
 node* find(node* root, element_t key, node** parent) {
     node* current = root;
     *parent = NULL;
@@ -362,6 +364,10 @@ node* find(node* root, element_t key, node** parent) {
 
     return NULL;
 }
+
+//=============================================================================
+// Contrato
+//=============================================================================
 
 tree_multiset* multiset_init() {
     tree_multiset* multiset = (tree_multiset*) xmalloc(sizeof(tree_multiset));   
@@ -408,9 +414,11 @@ void multiset_insert(tree_multiset* multiset, element_t key) {
 
         propagate_diff_cool(created);
         splay(multiset, created);
+
     } else {
         splay(multiset, found);
         found->count++;
+
         maintain_diff_cool(found);
     }
 }
