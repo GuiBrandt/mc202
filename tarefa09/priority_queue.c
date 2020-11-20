@@ -2,15 +2,20 @@
  * @file priority_queue.c
  * @author Guilherme G. Brandt (235970)
  * 
- * @brief Implementação de fila de prioridade com Beap [MS80].
+ * @brief Implementação de fila de prioridade com remoção com Beap [MS80] e
+ *        Trie.
  * 
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa09.html
  * 
- * [MS80]
- *  Munro, J.I. e Suwanda, H., 1980.
- *  Implicit data structures for fast search and update.
- *  Journal of Computer and System Sciences, 21(2), pp. 236-250.
- *  https://doi.org/10.1016/0022-0000(80)90037-9
+ * [MS80] MUNRO, J. Ian; SUWANDA, Hendra.
+ *        Implicit data structures for fast search and update.
+ *        Journal of Computer and System Sciences, v. 21, n. 2, p. 236-250,
+ *        1980. https://doi.org/10.1016/0022-0000(80)90037-9
+ * 
+ * [HZW02] HEINZ, Steffen; ZOBEL, Justin; WILLIAMS, Hugh E.
+ *         Burst tries: a fast, efficient data structure for string keys.
+ *         ACM Transactions on Information Systems (TOIS), v. 20, n. 2,
+ *         p. 192-223, 2002. https://doi.org/10.1145/506309.506312
  */
 
 #include "priority_queue.h"
@@ -252,12 +257,7 @@ int find(priority_queue* q, double rating, int* height) {
 }
 
 priority_queue* make_queue() {
-    priority_queue* q = (priority_queue*) malloc(sizeof(priority_queue));
-
-    if (q == NULL) {
-        fprintf(stderr, "Erro fatal: Out of memory.");
-        exit(-1);
-    }
+    priority_queue* q = (priority_queue*) xmalloc(sizeof(priority_queue));
 
     q->size = 0;
     q->height = 0;
