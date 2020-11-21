@@ -1,8 +1,18 @@
+/**
+ * @file diadeuber.c
+ * @author Guilherme G. Brandt (235970)
+ * 
+ * @brief Implementação da lógica da tarefa.
+ * 
+ * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa09.html
+ */
+
 #include "priority_queue.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+
 
 void read_customer(customer* c) {
     scanf("%s ", c->name);
