@@ -61,7 +61,7 @@ void enqueue(priority_queue* q, const customer* c);
 customer* dequeue(priority_queue* q);
 
 /**
- * @brief Cancela um cliente da fila.
+ * @brief Cancela e retorna um cliente da fila.
  * 
  * @param q a fila.
  * @param name o nome do cliente.

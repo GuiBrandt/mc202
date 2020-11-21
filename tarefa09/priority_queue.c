@@ -6,6 +6,31 @@
  * 
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa09.html
  * 
+ * Todas as operações têm complexidade O(√n), e assim como um Heap, o Beap
+ * (ou Heap biparental) é representado implicitamente em um array, ocupando
+ * O(n) espaço [MS80].
+ * 
+ * Para os valores de n possíveis na tarefa¹, o tempo proporcional de inserção
+ * e remoção de máximo proporcional a 2√2n do Beap não passa muito de cinco
+ * vezes log n, e isso é compensado durante os cancelamentos, onde o Beap é
+ * cerca de cinco vezes (provavelmente mais) mais rápido³.
+ * 
+ * ¹ As restrições especificam < 500 operações, sendo que uma certamente é um T
+ *   e não adiciona nenhum cliente na fila. Sendo assim, restam 498 operações,
+ *   das quais metade deve inserir um cliente e metade deve removê-lo da fila².
+ *   Logo, no máximo, a fila tem 249 clientes.
+ * 
+ * ² A tarefa não especifica essa relação, mas parece uma premissa plausível
+ *   assumir que a fila termina vazia.
+ * 
+ * ³ Para n = 249, os valores são:
+ *      - Inserção/Remover máximo: 2√498 / lg 249 ≈ 5,6070
+ *      - Deletar arbitário: (249 + lg 249) / 2√498 ≈ 5.7573
+ *   Vale também observar que durante a busca linear no Heap, as comparações
+ *   das chaves tomam um tempo considerável. Isso é extremamente reduzido
+ *   nesta implementação. Por isso, o fator de melhoria no cancelamento é,
+ *   provavelmente, ainda maior.
+ * 
  * [MS80] MUNRO, J. Ian; SUWANDA, Hendra.
  *        Implicit data structures for fast search and update.
  *        Journal of Computer and System Sciences, v. 21, n. 2, p. 236-250,
@@ -24,6 +49,10 @@
 #include "map.h"
 #include "xmalloc.h"
 
+//=============================================================================
+// Beap
+//=============================================================================
+
 struct priority_queue {
     const customer* customers[249];
     map* ratings;
@@ -39,7 +68,7 @@ struct priority_queue {
  * 
  * @return índice no array,
  */
-int first(int depth) {
+int first_index(int depth) {
     return depth * (depth - 1) / 2;
 }
 
@@ -51,8 +80,8 @@ int first(int depth) {
  * 
  * @return índice no array,
  */
-int last(int depth) {
-    return first(depth + 1) - 1;
+int last_index(int depth) {
+    return first_index(depth + 1) - 1;
 }
 
 /**
@@ -110,6 +139,8 @@ int right_child(int i, int depth) {
 /**
  * @brief Sobe um elemento no Beap até que esteja na posição apropriada.
  * 
+ * Complexidade de tempo: O(√n) [MS80].
+ * 
  * @param q o Beap.
  * @param c o cliente sendo movido.
  * @param i o índice do elemento no Beap.
@@ -120,21 +151,23 @@ void sift_up(priority_queue* q, const customer* c, int i, int depth) {
 
         // Calculamos o índice e prioridade dos pais do elemento, usando
         // INFINITY caso algum dois pais seja inválido. Isso tem o efeito de
-        // realmente ignorar aquele pai, porque INFINITY > x para todo x.
+        // ignorar aquele pai.
         int l_i = -1, r_i = -1;
         double l_rating, r_rating;
         
-        if (i != first(depth)) {
+        if (i != first_index(depth)) {
             l_i = left_parent(i, depth);
             l_rating = q->customers[l_i]->rating;
-        } else {
+
+        } else { // O primeiro elemento do nível não tem pai esquerdo
             l_rating = INFINITY;
         }
 
-        if (i != last(depth)) {
+        if (i != last_index(depth)) {
             r_i = right_parent(i, depth);
             r_rating = q->customers[r_i]->rating;
-        } else {
+
+        } else { // O último elemento do nível não tem pai direito
             r_rating = INFINITY;
         }
 
@@ -173,6 +206,10 @@ void sift_up(priority_queue* q, const customer* c, int i, int depth) {
 
 /**
  * @brief Desce um elemento no Beap até que esteja na posição apropriada.
+ * 
+ * Complexidade de tempo: O(√n) [MS80].
+ * 
+ * Simétrica a sift_up.
  * 
  * @param q o Beap.
  * @param c o cliente sendo movido.
@@ -218,6 +255,8 @@ void sift_down(priority_queue* q, const customer* c, int i, int depth) {
 /**
  * @brief Remove um elemento do Beap dado seu índice e profundidade.
  * 
+ * Complexidade de tempo: O(√n) [MS80].
+ * 
  * @param q o Beap.
  * @param i o índice do elemento no Beap.
  * @param depth a profundidade do elemento no Beap.
@@ -232,38 +271,58 @@ void delete_at(priority_queue* q, int i, int depth) {
     sift_up(q, c, i, depth);
     sift_down(q, c, i, depth);
     
-    if (q->size < first(q->height)) {
+    if (q->size < first_index(q->height)) {
         q->height--;
     }
 }
 
 /**
- * @brief Encontra o índice e profundidade
+ * @brief Encontra o índice e profundidade do elemento com prioridade dada no
+ *        Beap.
  * 
- * @param q 
- * @param rating 
- * @param depth 
- * @return int 
+ * Complexidade de tempo: O(√n) [MS80].
+ * 
+ * @param q o Beap.
+ * @param rating a prioridade do elemento.
+ * @param depth ponteiro de saída para a profundidade do elemento. 
+ * 
+ * @return índice do elemento no Beap.
  */
 int find(priority_queue* q, double rating, int* depth) {
+
+    // Começamos pelo índice mais à direita no Beap, este pode ser o último
+    // item do penúltimo nível ou o último item do último nível, se (e somente
+    // se) estiver cheio.
     int i, d;
     
-    if (q->size - 1 == last(q->height)) {
+    if (q->size - 1 == last_index(q->height)) {
         i = q->size - 1;
         d = q->height;
     } else {
-        i = last(q->height - 1);
+        i = last_index(q->height - 1);
         d = q->height - 1;
     }
 
+    // A partir disso, percorremos o Beap como uma matriz triangular onde
+    // linhas e colunas estão ordenadas, buscando pelo elemento desejado.
     while (i < q->size && q->customers[i]->rating != rating) {
+
+        // O pai esquerdo está diretamente à esquerda na matriz.
         if (rating > q->customers[i]->rating) {
             i = left_parent(i, d);
             d--;
+
         } else {
             int c_i = left_child(i, d);
-            if (c_i >= q->size || (d != 1 && i == last(d))) {
+            
+            // Se estivermos na diagonal, andamos na diagonal. Devido à
+            // representação do beap como array, para isso basta diminuir o
+            // índice (a profundidade também não muda).
+            if (c_i >= q->size || (d != 1 && i == last_index(d))) {
                 i--;
+
+            // Se não, vamos para o filho esquerdo, que está diretamente abaixo
+            // na matriz.
             } else {
                 i = c_i;
                 d++;
@@ -271,13 +330,15 @@ int find(priority_queue* q, double rating, int* depth) {
         }
     }
 
-    if (i >= q->size) {
-        return -1;
-    }
+    assert(i < q->size);
 
     *depth = d;
     return i;
 }
+
+//=============================================================================
+// IMPLEMENTAÇÃO (Contrato)
+//=============================================================================
 
 priority_queue* make_queue() {
     priority_queue* q = (priority_queue*) xmalloc(sizeof(priority_queue));
@@ -289,6 +350,13 @@ priority_queue* make_queue() {
     return q;
 }
 
+/**
+ * Complexidade de tempo: O(√n) [MS80].
+ * 
+ * A intuição é que o Beap forma uma matriz triangular, cuja altura é sempre
+ * proporcional a √(2n). Como o "beapify" toma tempo constante por nível
+ * (algumas comparações e no máximo uma troca), segue a complexidade.
+ */
 void enqueue(priority_queue* q, const customer* c) {
     map_add(q->ratings, c->name, c->rating);
 
@@ -303,11 +371,14 @@ void enqueue(priority_queue* q, const customer* c) {
 
     sift_up(q, c, q->size - 1, q->height);
 
-    if (q->size > last(q->height)) {
+    if (q->size > last_index(q->height)) {
         q->height++;
     }
 }
 
+/**
+ * Complexidade de tempo: O(√n) [MS80]. Idem enqueue.
+ */
 customer* dequeue(priority_queue* q) {
     if (q->size == 0) {
         return NULL;
@@ -319,6 +390,24 @@ customer* dequeue(priority_queue* q) {
     return c;
 }
 
+/**
+ * Complexidade de tempo: O(√n) [MS80].
+ * 
+ * Assim como as duas outras operações, só precisamos fazer uma troca (tempo
+ * constante) e "beapify", que toma tempo O(√n).
+ * 
+ * Isso só se aplica se tivermos o índice do elemento em tempo O(√n), no
+ * entanto.
+ * 
+ * Para isso, usa-se um dicionário com tempo de leitura constante¹. Dessa
+ * forma, podemos buscar a prioridade para um nome dado e usá-la para buscar
+ * pelo elemento no Beap em tempo O(√n), mantendo a complexidade da operação
+ * como um todo.
+ * 
+ * ¹ Mais especificamente, com tempo O(k), onde k é o tamanho do nome;
+ *   no caso da tarefa, k <= 16, então é seguro dizer que o tempo é de fato
+ *   constante (e relativamente pequeno).
+ */
 customer* cancel(priority_queue* q, const char* name) {
     double rating = map_get(q->ratings, name);
 
