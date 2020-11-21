@@ -2,7 +2,7 @@
  * @file tree_multiset.c
  * @author Guilherme G. Brandt (235970)
  * 
- * @brief Implementação do ADT de multiset usando uma árvore Splay [ST85]
+ * @brief Implementação do ADT de multiset usando uma árvore Splay.
  *
  * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa08.html
  */
