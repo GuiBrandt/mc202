@@ -4,6 +4,24 @@
  * 
  * @brief Implementação do ADT de dicionário usando Burst Trie [HZW02].
  * 
+ * Ambas as operações de inserção e busca tomam tempo constante¹. Além disso, o
+ * espaço utilizado é aproximadamente o mesmo de uma árvore binária de busca
+ * (muito melhor que uma Trie convencional).
+ * 
+ * Outras propriedades interessantes da burst-trie incluem minimizar a
+ * quantidade de operações de alocação de memória em relação a outras
+ * estruturas ligadas, que são excepcionalmente custosas, bem como a quantidade
+ * de ponteiros derreferenciados, que tem um efeito positivo em desempenho.
+ * 
+ * Esta implementação não inclui uma operação de remoção, porque não é
+ * necessário para a tarefa e os efeitos indesejáveis têm pouco efeito no
+ * desempenho geral, de forma que tratar a remoção possivelmente traria mais
+ * danos do que benefícios.
+ * 
+ * ¹ Na realidade, o tempo é proporcional ao tamanho da chave. Como na tarefa
+ *   as chaves (nomes) tem tamanho <= 16, é seguro dizer que o tempo gasto é
+ *   constante (e uma constante razoávelmente pequena).
+ * 
  * [HZW02] HEINZ, Steffen; ZOBEL, Justin; WILLIAMS, Hugh E.
  *         Burst tries: a fast, efficient data structure for string keys.
  *         ACM Transactions on Information Systems (TOIS), v. 20, n. 2,
