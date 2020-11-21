@@ -218,7 +218,7 @@ void sift_up(priority_queue* q, const customer* c, int i, int depth) {
  */
 void sift_down(priority_queue* q, const customer* c, int i, int depth) {
     for (; depth <= q->height; depth++) {
-        int l_i = left_child(i, depth), r_i;
+        int l_i = left_child(i, depth), r_i = -1;
         double l_rating, r_rating;
         
         if (l_i < q->size) {
@@ -237,9 +237,13 @@ void sift_down(priority_queue* q, const customer* c, int i, int depth) {
 
         if (c->rating < l_rating || c->rating < r_rating) {
             if (l_rating > r_rating) {
+                assert(l_i != -1);
+
                 q->customers[i] = q->customers[l_i];
                 i = l_i;
             } else {
+                assert(r_i != -1);
+
                 q->customers[i] = q->customers[r_i];
                 i = r_i;
             }
