@@ -22,7 +22,7 @@
 #include <math.h>
 
 #include "map.h"
-#include "util.h"
+#include "xmalloc.h"
 
 struct priority_queue {
     const customer* customers[249];
@@ -31,49 +31,115 @@ struct priority_queue {
     size_t height;
 };
 
-int first(int h) {
-    return h * (h - 1) / 2;
+/**
+ * @brief Calcula o índice no array do primeiro elemento com dada profundidade
+ *        no Beap.
+ * 
+ * @param depth profundidade desejada.
+ * 
+ * @return índice no array,
+ */
+int first(int depth) {
+    return depth * (depth - 1) / 2;
 }
 
-int last(int h) {
-    return first(h + 1) - 1;
+/**
+ * @brief Calcula o índice no array do último elemento com dada profundidade no
+ *        Beap.
+ * 
+ * @param depth profundidade desejada.
+ * 
+ * @return índice no array,
+ */
+int last(int depth) {
+    return first(depth + 1) - 1;
 }
 
-int left_parent(int i, int h) {
-    return i - h;
+/**
+ * @brief Calcula o índice do pai esquerdo de um elemento com dada profundidade
+ *        no Beap.
+ * 
+ * @param i índice do elemento.
+ * @param depth profundidade.
+ * 
+ * @return índice do pai esquerdo.
+ */
+int left_parent(int i, int depth) {
+    return i - depth;
 }
 
-int right_parent(int i, int h) {
-    return i - h + 1;
+/**
+ * @brief Calcula o índice do pai direito de um elemento com dada profundidade
+ *        no Beap.
+ * 
+ * @param i índice do elemento.
+ * @param depth profundidade.
+ * 
+ * @return índice do pai direito.
+ */
+int right_parent(int i, int depth) {
+    return i - depth + 1;
 }
 
-int left_child(int i, int h) {
-    return i + h;
+/**
+ * @brief Calcula o índice do filho esquerdo de um elemento com dada
+ *        profundidade no Beap.
+ * 
+ * @param i índice do elemento.
+ * @param depth profundidade.
+ * 
+ * @return índice do filho esquerdo.
+ */
+int left_child(int i, int depth) {
+    return i + depth;
 }
 
-int right_child(int i, int h) {
-    return i + h + 1;
+/**
+ * @brief Calcula o índice do filho direito de um elemento com dada
+ *        profundidade no Beap.
+ * 
+ * @param i índice do elemento.
+ * @param depth profundidade.
+ * 
+ * @return índice do filho direito.
+ */
+int right_child(int i, int depth) {
+    return i + depth + 1;
 }
 
-int sift_up(priority_queue* q, const customer* c, int i, int h) {
-    for (; h > 1; h--) {
+/**
+ * @brief Sobe um elemento no Beap até que esteja na posição apropriada.
+ * 
+ * @param q o Beap.
+ * @param c o cliente sendo movido.
+ * @param i o índice do elemento no Beap.
+ * @param depth a profundidade do elemento no Beap.
+ */
+void sift_up(priority_queue* q, const customer* c, int i, int depth) {
+    for (; depth > 1; depth--) {
+
+        // Calculamos o índice e prioridade dos pais do elemento, usando
+        // INFINITY caso algum dois pais seja inválido. Isso tem o efeito de
+        // realmente ignorar aquele pai, porque INFINITY > x para todo x.
         int l_i = -1, r_i = -1;
         double l_rating, r_rating;
         
-        if (i != first(h)) {
-            l_i = left_parent(i, h);
+        if (i != first(depth)) {
+            l_i = left_parent(i, depth);
             l_rating = q->customers[l_i]->rating;
         } else {
             l_rating = INFINITY;
         }
 
-        if (i != last(h)) {
-            r_i = right_parent(i, h);
+        if (i != last(depth)) {
+            r_i = right_parent(i, depth);
             r_rating = q->customers[r_i]->rating;
         } else {
             r_rating = INFINITY;
         }
 
+        // Se o elemento é maior qualquer um dos pais, trocamos ele pelo menor
+        // dos pais
         if (c->rating > l_rating || c->rating > r_rating) {
             if (l_rating < r_rating) {
                 assert(l_i != -1);
@@ -86,31 +152,42 @@ int sift_up(priority_queue* q, const customer* c, int i, int h) {
                 q->customers[i] = q->customers[r_i];
                 i = r_i;
             }
+
+        // Se não, encontramos o lugar correto para o elemento
         } else {
             q->customers[i] = c;
-            return h;
+            return;
         }
     }
 
+    // Caso especial: a função não se comporta muito bem para depth = 1 (em
+    // específico por conta da definição de right_parent), então tratamos o
+    // caso onde o elemento é o maior separadamente.
     if (c->rating > q->customers[0]->rating) {
         q->customers[i] = q->customers[0];
         q->customers[0] = c;
     } else {
         q->customers[i] = c;
     }
-
-    return h;
 }
 
-void sift_down(priority_queue* q, const customer* c, int i, int h) {
-    for (; h <= q->height; h++) {
-        int l_i = left_child(i, h), r_i;
+/**
+ * @brief Desce um elemento no Beap até que esteja na posição apropriada.
+ * 
+ * @param q o Beap.
+ * @param c o cliente sendo movido.
+ * @param i o índice do elemento no Beap.
+ * @param depth a profundidade do elemento no Beap.
+ */
+void sift_down(priority_queue* q, const customer* c, int i, int depth) {
+    for (; depth <= q->height; depth++) {
+        int l_i = left_child(i, depth), r_i;
         double l_rating, r_rating;
         
         if (l_i < q->size) {
             l_rating = q->customers[l_i]->rating;
 
-            r_i = right_child(i, h);
+            r_i = right_child(i, depth);
 
             if (r_i < q->size) {
                 r_rating = q->customers[r_i]->rating;
@@ -138,41 +215,58 @@ void sift_down(priority_queue* q, const customer* c, int i, int h) {
     q->customers[i] = c;
 }
 
-void delete_at(priority_queue* q, int i, int h) {
+/**
+ * @brief Remove um elemento do Beap dado seu índice e profundidade.
+ * 
+ * @param q o Beap.
+ * @param i o índice do elemento no Beap.
+ * @param depth a profundidade do elemento no Beap.
+ */
+void delete_at(priority_queue* q, int i, int depth) {
     q->size--;
+
     const customer* c = q->customers[q->size];
 
     // No máximo um dos dois tem efeito, mas não tem vantagem verificar antes
     // qual deve acontecer (a lógica seria a mesma da função).
-    sift_up(q, c, i, h);
-    sift_down(q, c, i, h);
+    sift_up(q, c, i, depth);
+    sift_down(q, c, i, depth);
     
     if (q->size < first(q->height)) {
         q->height--;
     }
 }
 
-int find(priority_queue* q, double rating, int* height) {
-    int i, h;
+/**
+ * @brief Encontra o índice e profundidade
+ * 
+ * @param q 
+ * @param rating 
+ * @param depth 
+ * @return int 
+ */
+int find(priority_queue* q, double rating, int* depth) {
+    int i, d;
+    
     if (q->size - 1 == last(q->height)) {
         i = q->size - 1;
-        h = q->height;
+        d = q->height;
     } else {
         i = last(q->height - 1);
-        h = q->height - 1;
+        d = q->height - 1;
     }
 
     while (i < q->size && q->customers[i]->rating != rating) {
         if (rating > q->customers[i]->rating) {
-            i = left_parent(i, h);
-            h--;
+            i = left_parent(i, d);
+            d--;
         } else {
-            int c_i = left_child(i, h);
-            if (c_i >= q->size || (h != 1 && i == last(h))) {
+            int c_i = left_child(i, d);
+            if (c_i >= q->size || (d != 1 && i == last(d))) {
                 i--;
             } else {
                 i = c_i;
-                h++;
+                d++;
             }
         }
     }
@@ -181,7 +275,7 @@ int find(priority_queue* q, double rating, int* height) {
         return -1;
     }
 
-    *height = h;
+    *depth = d;
     return i;
 }
 
@@ -228,14 +322,14 @@ customer* dequeue(priority_queue* q) {
 customer* cancel(priority_queue* q, const char* name) {
     double rating = map_get(q->ratings, name);
 
-    int height;
-    int index = find(q, rating, &height);
+    int depth;
+    int index = find(q, rating, &depth);
 
     assert(index != -1);
 
     customer* c = (customer*) q->customers[index];
 
-    delete_at(q, index, height);
+    delete_at(q, index, depth);
 
     return c;
 }

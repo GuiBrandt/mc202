@@ -1,4 +1,11 @@
-#include "util.h"
+/**
+ * @file xmalloc.h
+ * @author Guilherme G. Brandt (235970)
+ * 
+ * @brief Implementação da função malloc adaptada para tratar OOM.
+ */
+
+#include "xmalloc.h"
 
 #include <stdlib.h>
 #include <stdio.h>
