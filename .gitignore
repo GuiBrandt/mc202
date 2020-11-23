@@ -25,3 +25,7 @@ listas_legais
 
 tarefa09/diadeuber
 diadeuber
+
+tarefa10/corretor
+tarefa10/*.o
+tarefa10/_pycache_
