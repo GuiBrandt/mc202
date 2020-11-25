@@ -1,6 +1,10 @@
 {
 	"folders": [
 		{
+			"name": "Corretor",
+			"path": "tarefa10"
+		},
+		{
 			"name": "Dia de Uber",
 			"path": "tarefa09"
 		},

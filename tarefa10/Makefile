@@ -5,8 +5,8 @@ LDFLAGS = -lm
 
 all: corretor
 
-corretor: corretor.c
-	gcc $(CFLAGS) corretor.c -o corretor $(LDFLAGS)
+corretor: *.c
+	gcc $(CFLAGS) *.c -o corretor $(LDFLAGS)
 
 clean:
 	rm -f corretor
