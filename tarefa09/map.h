@@ -6,6 +6,16 @@
  */
 
 /**
+ * @brief Tipo de chave usada no mapa. 
+ */
+typedef const char* mkey_t;
+
+/**
+ * @brief Tipo de valor armazenado no mapa. 
+ */
+typedef int mvalue_t;
+
+/**
  * @brief Estrutura opaca de dicionário. 
  */
 typedef struct map map;
@@ -20,16 +30,17 @@ typedef struct map map;
 map* make_map();
 
 /**
- * @brief Adiciona um nome e um valor associado no dicionário.
+ * @brief Adiciona um nome e um valor associado no dicionário. Caso o nome já
+ *        exista no dicionário, atualiza o valor.
  * 
  * Em caso de falha, esta função termina o programa com código de erro -1.
  * 
  * @param m o dicionário.
  * @param name o nome. Deve conter exclusivamente letras maiúsculas e sem
  *             acentos.
- * @param rating o valor associado ao nome.
+ * @param value o valor associado ao nome.
  */
-void map_add(map* m, const char* name, double rating);
+void map_set(map* m, mkey_t name, mvalue_t value);
 
 /**
  * @brief Obtém o valor associado a um nome no dicionário.
@@ -43,7 +54,7 @@ void map_add(map* m, const char* name, double rating);
  * 
  * @return o valor.
  */
-double map_get(map* m, const char* name);
+mvalue_t map_get(map* m, mkey_t name);
 
 /**
  * @brief Libera os recursos alocados para um dicionário.

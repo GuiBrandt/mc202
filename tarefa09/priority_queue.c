@@ -55,7 +55,7 @@
 
 struct priority_queue {
     const customer* customers[249];
-    map* ratings;
+    map* index;
     size_t size;
     size_t height;
 };
@@ -146,7 +146,7 @@ int right_child(int i, int depth) {
  * @param i o índice do elemento no Beap.
  * @param depth a profundidade do elemento no Beap.
  */
-void sift_up(priority_queue* q, const customer* c, int i, int depth) {
+int sift_up(priority_queue* q, const customer* c, int i, int depth) {
     for (; depth > 1; depth--) {
 
         // Calculamos o índice e prioridade dos pais do elemento, usando
@@ -189,7 +189,7 @@ void sift_up(priority_queue* q, const customer* c, int i, int depth) {
         // Se não, encontramos o lugar correto para o elemento
         } else {
             q->customers[i] = c;
-            return;
+            return i;
         }
     }
 
@@ -199,8 +199,10 @@ void sift_up(priority_queue* q, const customer* c, int i, int depth) {
     if (c->rating > q->customers[0]->rating) {
         q->customers[i] = q->customers[0];
         q->customers[0] = c;
+        return 0;
     } else {
         q->customers[i] = c;
+        return i;
     }
 }
 
@@ -349,7 +351,7 @@ priority_queue* make_queue() {
 
     q->size = 0;
     q->height = 0;
-    q->ratings = make_map();
+    q->index = make_map();
 
     return q;
 }
@@ -362,18 +364,19 @@ priority_queue* make_queue() {
  * (algumas comparações e no máximo uma troca), segue a complexidade.
  */
 void enqueue(priority_queue* q, const customer* c) {
-    map_add(q->ratings, c->name, c->rating);
 
     int n = q->size;
     q->size++;
 
     if (q->size == 1) {
+        map_set(q->index, c->name, n);
         q->customers[n] = c;
         q->height = 1;
         return;
     }
 
-    sift_up(q, c, q->size - 1, q->height);
+    n = sift_up(q, c, q->size - 1, q->height);
+    map_set(q->index, c->name, n);
 
     if (q->size > last_index(q->height)) {
         q->height++;
@@ -413,7 +416,7 @@ customer* dequeue(priority_queue* q) {
  *   constante (e relativamente pequeno).
  */
 customer* cancel(priority_queue* q, const char* name) {
-    double rating = map_get(q->ratings, name);
+    double rating = map_get(q->index, name);
 
     int depth;
     int index = find(q, rating, &depth);
@@ -428,6 +431,6 @@ customer* cancel(priority_queue* q, const char* name) {
 }
 
 void destroy_queue(priority_queue* q) {
-    destroy_map(q->ratings);
+    destroy_map(q->index);
     free(q);
 }

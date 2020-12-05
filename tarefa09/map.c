@@ -50,7 +50,7 @@
  */
 typedef struct {
     char suffix[16];
-    double rating; 
+    mvalue_t value; 
 } record;
 
 /**
@@ -80,7 +80,7 @@ typedef struct node {
 
     union {
         struct trie {
-            double null_leaf;
+            mvalue_t null_leaf;
             struct node* children[26];
         } trie;
 
@@ -125,7 +125,7 @@ node* make_container_node() {
  * 
  * @return o valor associado ao nome no container. 
  */
-double container_find(node* node, const char* suffix) {
+mvalue_t container_find(node* node, mkey_t suffix) {
     assert(node->type == CONTAINER);
     assert(node->container.size > 0);
 
@@ -133,7 +133,7 @@ double container_find(node* node, const char* suffix) {
         record current = node->container.records[i];
 
         if (strcmp(suffix, current.suffix) == 0) {
-            return current.rating;
+            return current.value;
         }
     }
 
@@ -142,22 +142,52 @@ double container_find(node* node, const char* suffix) {
 }
 
 /**
+ * @brief Localiza um elemento em um container. Retorna NULL caso não encontre
+ *        o registro do elemento no container.
+ * 
+ * Os containers são arrays, então a busca é linear, mas como o tamanho deles
+ * é reduzido (e o tamanho das chaves deve ser também, além de muito
+ * provavelmente a comparação terminar logo no primeiro caractere) o tempo
+ * gasto aqui é bem pequeno.
+ * 
+ * @param node nó-folha da burst-trie.
+ * @param suffix sufixo do elemento sendo inserido/atualizado.
+ * 
+ * @return um ponteiro para o registro do elemento no container, ou NULL caso
+ *         não exista.
+ */
+record* container_locate(node* node, mkey_t suffix) {
+    assert(node->type == CONTAINER);
+    
+    for (int i = 0; i < node->container.size; i++) {
+        record* r = &node->container.records[i];
+        if (strcmp(r->suffix, suffix) == 0) {
+            return r;
+        }
+    }
+
+    return NULL;
+}
+
+/**
  * @brief Adiciona um elemento a um container.
  * 
  * @param node nó-folha da burst-trie.
- * @param suffix sufixo do elemento sendo inserido.
- * @param rating valor associado.
+ * @param r registro no container.
+ * @param suffix sufixo do elemento sendo inserido/atualizado.
+ * @param value valor associado.
  */
-void container_add(node* node, const char* suffix, double rating) {
+void container_set(node* node, record* r, mkey_t suffix, mvalue_t value) {
     assert(node->type == CONTAINER);
     assert(node->container.size < CONTAINER_CAPACITY);
+    
+    if (r == NULL) {
+        r = &node->container.records[node->container.size];
+        strcpy(r->suffix, suffix);
+        node->container.size++;
+    }
 
-    record* r = &node->container.records[node->container.size];
-
-    strcpy(r->suffix, suffix);
-    r->rating = rating;
-
-    node->container.size++;
+    r->value = value;
 }
 
 /**
@@ -178,25 +208,25 @@ bool container_will_burst(node* node) {
  * 
  * @param root raíz da burst-trie.
  * @param name o nome.
- * @param rating o valor associado.
+ * @param value o valor associado.
  */
-void bursttrie_add(node* root, const char* name, double rating);
+void bursttrie_set(node* root, mkey_t name, mvalue_t value);
 
 /**
  * @brief Associa um sufixo de nome a um valor em um container da burst-trie.
  * 
  * @param node nó do container.
  * @param suffix o sufixo.
- * @param rating o valor associado.
+ * @param value o valor associado.
  */
-void bursttrie_container_add(node* node, const char* suffix, double rating);
+void bursttrie_container_set(node* node, mkey_t suffix, mvalue_t value);
 
-void bursttrie_add(node* root, const char* name, double rating) {
+void bursttrie_set(node* root, mkey_t name, mvalue_t value) {
     assert(root->type == TRIE);
 
     node* current = root;
 
-    const char* suffix = name;
+    mkey_t suffix = name;
 
     while (current->type != CONTAINER && suffix[0] != '\0') {
         int key = suffix[0] - 'A';
@@ -204,7 +234,8 @@ void bursttrie_add(node* root, const char* name, double rating) {
 
         if (next == NULL) {
             next = current->trie.children[key] = make_container_node();
-            container_add(next, suffix + 1, rating);
+            record* r = container_locate(next, suffix);
+            container_set(next, r, suffix + 1, value);
             return;
         }
 
@@ -213,17 +244,19 @@ void bursttrie_add(node* root, const char* name, double rating) {
     }
 
     if (suffix[0] == '\0') {
-        current->trie.null_leaf = rating;
+        current->trie.null_leaf = value;
         
     } else {
-        bursttrie_container_add(current, suffix, rating);
+        bursttrie_container_set(current, suffix, value);
     }
 }
 
-void bursttrie_container_add(node* node, const char* suffix, double rating) {
+void bursttrie_container_set(node* node, mkey_t suffix, mvalue_t value) {
     assert(node->type == CONTAINER);
 
-    if (container_will_burst(node)) {
+    record* r = container_locate(node, suffix);
+
+    if (r == NULL && container_will_burst(node)) {
         container_t temp;
         memcpy(&temp, &node->container, sizeof(container_t));
 
@@ -232,12 +265,12 @@ void bursttrie_container_add(node* node, const char* suffix, double rating) {
 
         for (int i = 0; i < temp.size; i++) {
             record r = temp.records[i];
-            bursttrie_add(node, r.suffix, r.rating);
+            bursttrie_set(node, r.suffix, r.value);
         }
 
-        bursttrie_add(node, suffix, rating);
+        bursttrie_set(node, suffix, value);
     } else {
-        container_add(node, suffix, rating);
+        container_set(node, r, suffix, value);
     }
 }
 
@@ -269,14 +302,14 @@ map* make_map() {
     return t;
 }
 
-void map_add(map* m, const char* name, double rating) {
-    bursttrie_add(&m->root, name, rating);
+void map_set(map* m, mkey_t name, mvalue_t value) {
+    bursttrie_set(&m->root, name, value);
 }
 
-double map_get(map* m, const char* name) {
+mvalue_t map_get(map* m, mkey_t name) {
     node* current = &m->root;
 
-    const char* suffix = name;
+    mkey_t suffix = name;
     
     while (current->type != CONTAINER && suffix[0] != '\0') {
         current = current->trie.children[suffix[0] - 'A'];
