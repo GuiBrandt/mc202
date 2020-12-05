@@ -54,7 +54,7 @@ void map_set(map* m, mkey_t name, mvalue_t value);
  * 
  * @return o valor.
  */
-mvalue_t map_get(map* m, mkey_t name);
+mvalue_t map_get(const map* m, mkey_t name);
 
 /**
  * @brief Libera os recursos alocados para um dicionário.

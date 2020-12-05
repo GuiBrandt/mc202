@@ -125,7 +125,7 @@ node* make_container_node() {
  * 
  * @return o valor associado ao nome no container. 
  */
-mvalue_t container_find(node* node, mkey_t suffix) {
+mvalue_t container_find(const node* node, mkey_t suffix) {
     assert(node->type == CONTAINER);
     assert(node->container.size > 0);
 
@@ -179,9 +179,9 @@ record* container_locate(node* node, mkey_t suffix) {
  */
 void container_set(node* node, record* r, mkey_t suffix, mvalue_t value) {
     assert(node->type == CONTAINER);
-    assert(node->container.size < CONTAINER_CAPACITY);
-    
+
     if (r == NULL) {
+        assert(node->container.size < CONTAINER_CAPACITY);
         r = &node->container.records[node->container.size];
         strcpy(r->suffix, suffix);
         node->container.size++;
@@ -306,8 +306,8 @@ void map_set(map* m, mkey_t name, mvalue_t value) {
     bursttrie_set(&m->root, name, value);
 }
 
-mvalue_t map_get(map* m, mkey_t name) {
-    node* current = &m->root;
+mvalue_t map_get(const map* m, mkey_t name) {
+    const node* current = &m->root;
 
     mkey_t suffix = name;
     
