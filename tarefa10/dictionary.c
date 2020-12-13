@@ -2,9 +2,8 @@
  * @file dictionary.c
  * @author Guilherme G. Brandt (gui.g.bandt@gmail.com)
  * 
- * @brief Implementação do ADT de dicionário usando Hash table e BK-Tree.
- *
- * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa10.html 
+ * @brief Implementação do ADT de dicionário usando Hash table, extendido para
+ *        busca aproximada usando o ADT de dicionário de distância de edição 1.
  */
 
 #include "dictionary.h"
@@ -26,7 +25,7 @@
 
 typedef uint32_t hash_t;
 
-typedef char key_t[25];
+typedef char key_t[26];
 
 typedef struct hash_table {
     size_t size;
@@ -38,7 +37,7 @@ struct dict {
     one_off_index* approx_index;
 };
 
-#define TABLE_SIZE          3
+#define TABLE_SIZE 233
 
 //=============================================================================
 // IMPLEMENTAÇÃO (Hashing)
@@ -62,7 +61,7 @@ hash_t hash(const char* key) {
     for (size_t i = 0; i < 25; i++) {
         h ^= valid & key[i];
         h *= FNV_prime;
-        valid *= key != 0;
+        valid *= key[i] != 0;
     }
     return h;
 }
@@ -71,12 +70,12 @@ hash_t hash(const char* key) {
 // IMPLEMENTAÇÃO (Contrato)
 //=============================================================================
 
-bool hash_query(dict* d, const char* word) {
+bool hash_query(hash_table* table, const char* word) {
     hash_t h = hash(word);
     hash_t i = h % TABLE_SIZE, o = i;
 
-    while (d->exact_index.data[i][0] != '\0') {
-        if (strcmp(word, d->exact_index.data[i]) == 0) {
+    while (table->data[i][0] != '\0') {
+        if (strcmp(word, table->data[i]) == 0) {
             return true;
         }
 
@@ -103,6 +102,8 @@ dict* make_dict() {
         exit(-1);
     }
 
+    d->approx_index = make_oneoff();
+
     return d;
 }
 
@@ -116,36 +117,21 @@ void dict_insert(dict* d, const char* word) {
     }
 
     strcpy(d->exact_index.data[i], word);
+    oneoff_insert(d->approx_index, d->exact_index.data[i]);
 }
 
 color dict_query(dict* d, const char* word) {
-    if (hash_query(d, word)) {
+    if (hash_query(&d->exact_index, word)) {
         return GREEN;
-    //} else if (oneoff_query(d->approx_index, word)) {
-    //    return YELLOW;
+    } else if (oneoff_query(d->approx_index, word)) {
+        return YELLOW;
     } else {
         return RED;
     }
 }
 
 void destroy_dict(dict* dict) {
-    //destroy_oneoff(dict->approx_index);
+    destroy_oneoff(dict->approx_index);
     free(dict->exact_index.data);
     free(dict);
-}
-
-int main() {
-    dict* d = make_dict();
-
-    dict_insert(d, "TEST");
-    dict_insert(d, "ASD");
-    dict_insert(d, "BFS");
-
-    printf("%d", dict_query(d, "TEST"));
-    printf("%d", dict_query(d, "ASD"));
-    printf("%d", dict_query(d, "BFS"));
-
-    destroy_dict(d);
-
-    return 0;
 }
