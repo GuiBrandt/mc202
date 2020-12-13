@@ -132,7 +132,7 @@ void sift_down(priority_queue* q, const customer* c, int i) {
 }
 
 /**
- * @brief Remove um elemento do Heap dado seu índice e profundidade.
+ * @brief Remove um elemento do Heap dado seu índice.
  * 
  * Complexidade de tempo: O(lg n).
  * 
@@ -153,8 +153,7 @@ void delete_at(priority_queue* q, int i) {
 }
 
 /**
- * @brief Encontra o índice e profundidade do elemento com prioridade dada no
- *        Heap.
+ * @brief Encontra o índice do elemento com nome dado no Heap.
  * 
  * Complexidade de tempo: O(1).
  * 
