@@ -13,8 +13,8 @@
 typedef struct one_off_index one_off_index;
 
 one_off_index* make_oneoff();
-void oneoff_insert(const char* word);
-bool oneoff_query(const char* word);
+void oneoff_insert(one_off_index* dict, const char* word);
+bool oneoff_query(one_off_index* dict, const char* word);
 void destroy_oneoff(one_off_index* dict);
 
 #endif // __ONEOFF_INDEX_H__
