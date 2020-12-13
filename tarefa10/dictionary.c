@@ -74,7 +74,7 @@ bool hash_query(hash_table* table, const char* word) {
     hash_t h = hash(word);
     hash_t i = h % TABLE_SIZE, o = i;
 
-    while (table->data[i][0] != '\0') {
+    while (table->data[i] != NULL) {
         if (strcmp(word, table->data[i]) == 0) {
             return true;
         }
@@ -111,7 +111,7 @@ void dict_insert(dict* d, const char* word) {
     hash_t h = hash(word);
     hash_t i = h % TABLE_SIZE, o = i;
 
-    while (d->exact_index.data[i][0] != '\0') {
+    while (d->exact_index.data[i] != NULL) {
         i = (i + 1) % TABLE_SIZE;
         assert(i != o);
     }
