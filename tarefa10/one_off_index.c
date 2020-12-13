@@ -115,8 +115,7 @@ dist_t edit_distance(const char* a, const char* b) {
     }
 
     for (int j = m - 1; j >= 0; j--) {
-        // Caso base 2: "a" vazio
-        top[n] = m - j;
+        top[n] = m - j;  // Caso base 2: "a" vazio
 
         for (int i = n - 1; i >= 0; i--) {
             if (a[i] == b[j]) {
@@ -130,9 +129,9 @@ dist_t edit_distance(const char* a, const char* b) {
             }
         }
 
-        dist_t* aux = top;
-        top = bottom;
-        bottom = aux;
+        dist_t* aux = bottom;
+        bottom = top;
+        top = aux;
     }
 
     return bottom[0];
@@ -224,8 +223,8 @@ bool oneoff_query(one_off_index* dict, const char* word) {
         return false;
     }
 
-    // Pilha para "recursão", não estoura porque o dicionário tem no máximo
-    // 100 palavras.
+    // Pilha para "recursão", não estoura porque a altura da árvore é no máximo
+    // o número de palavras no dicionário (provavelmente menor).
     bk_node_t* stack[100] = { dict->root, 0 };
     int top = 0;
 

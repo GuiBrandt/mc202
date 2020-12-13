@@ -41,22 +41,22 @@ dict* make_dict();
 /**
  * @brief Insere um elemento em um dicionário.
  * 
- * @param d o dicionário.
+ * @param dict o dicionário.
  * @param word a palavra.
  */
-void dict_insert(dict* d, const char* word);
+void dict_insert(dict* dict, const char* word);
 
 /**
  * @brief Busca por um elemento no dicionário.
  * 
- * @param d o dicionário.
+ * @param dict o dicionário.
  * @param word a palavra.
  * 
  * @return GREEN caso a palavra exista exatamente como dado no dicionário,
  *         YELLOW caso a palvra exista com uma edição no dicionário, e RED caso
  *         contrário.
  */
-color dict_query(dict* d, const char* word);
+color dict_query(dict* dict, const char* word);
 
 /**
  * @brief Libera os recursos alocados para um dicionário.

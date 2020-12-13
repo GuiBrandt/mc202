@@ -69,10 +69,14 @@ hash_t hash(const char* key) {
     return h;
 }
 
-//=============================================================================
-// IMPLEMENTAÇÃO (Contrato)
-//=============================================================================
-
+/**
+ * @brief Busca por um valor na hash table.
+ * 
+ * @param table a tabela.
+ * @param word o valor.
+ * 
+ * @return true caso o valor exista na tabela, false caso contrário. 
+ */
 bool hash_query(hash_table* table, const char* word) {
     hash_t h = hash(word);
     hash_t i = h % TABLE_SIZE, o = i;
@@ -88,6 +92,10 @@ bool hash_query(hash_table* table, const char* word) {
 
     return false;
 }
+
+//=============================================================================
+// IMPLEMENTAÇÃO (Contrato)
+//=============================================================================
 
 dict* make_dict() {
     dict* d = (dict*) malloc(sizeof(dict));
