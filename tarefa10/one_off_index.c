@@ -150,7 +150,7 @@ dist_t edit_distance(const char* a, const char* b) {
  * @return o nó alocado.
  */
 bk_node_t* make_node(const char* word) {
-    bk_node_t* node = (bk_node_t*) malloc(sizeof(bk_node_t));
+    bk_node_t* node = (bk_node_t*) calloc(1, sizeof(bk_node_t));
 
     if (node == NULL) {
         fprintf(stderr, "Erro fatal: Out of memory.");
@@ -158,7 +158,6 @@ bk_node_t* make_node(const char* word) {
     }
 
     node->word = word;
-    memset(node->children, 0, KEY_SIZE * sizeof(bk_node_t*));
 
     return node;
 }

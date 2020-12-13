@@ -15,10 +15,10 @@ int main() {
     int n, q;
     scanf("%d %d ", &n, &q);
 
-    char word[27];
 
     dict* d = make_dict();
 
+    char word[27];
     for (int i = 0; i < n; i++) {
         scanf("%s ", word);
         dict_insert(d, word);

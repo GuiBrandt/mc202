@@ -59,9 +59,12 @@ hash_t hash(const char* key) {
     hash_t h = FNV_offset_basis;
     hash_t valid = ~0;
     for (size_t i = 0; i < 25; i++) {
-        h ^= valid & key[i];
+        if (valid) {
+            h ^= valid & key[i];
+            valid *= key[i] != 0;
+        }
+
         h *= FNV_prime;
-        valid *= key[i] != 0;
     }
     return h;
 }
@@ -74,7 +77,7 @@ bool hash_query(hash_table* table, const char* word) {
     hash_t h = hash(word);
     hash_t i = h % TABLE_SIZE, o = i;
 
-    while (table->data[i] != NULL) {
+    while (table->data[i][0] != '\0') {
         if (strcmp(word, table->data[i]) == 0) {
             return true;
         }
@@ -95,11 +98,15 @@ dict* make_dict() {
     }
 
     d->exact_index.size = TABLE_SIZE;
-    d->exact_index.data = (key_t*) calloc(TABLE_SIZE, sizeof(key_t));
+    d->exact_index.data = (key_t*) malloc(TABLE_SIZE * sizeof(key_t));
 
     if (d->exact_index.data == NULL) {
         fprintf(stderr, "Erro fatal: Out of memory.");
         exit(-1);
+    }
+
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        d->exact_index.data[i][0] = '\0';
     }
 
     d->approx_index = make_oneoff();
@@ -111,7 +118,7 @@ void dict_insert(dict* d, const char* word) {
     hash_t h = hash(word);
     hash_t i = h % TABLE_SIZE, o = i;
 
-    while (d->exact_index.data[i] != NULL) {
+    while (d->exact_index.data[i][0] != '\0') {
         i = (i + 1) % TABLE_SIZE;
         assert(i != o);
     }
