@@ -5,7 +5,7 @@ LDFLAGS = -lm
 
 all: caminho
 
-caminho: caminho.c
+caminho: *.c
 	gcc $(CFLAGS) *.c -o caminho $(LDFLAGS)
 
 clean:
