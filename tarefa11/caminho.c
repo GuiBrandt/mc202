@@ -1,3 +1,12 @@
+/**
+ * @file caminho.c
+ * @author Guilherme G. Brandt (235970)
+ * 
+ * @brief Implementação da lógica da tarefa.
+ * 
+ * @see https://www.ic.unicamp.br/~lehilton/mc202ab/tarefas/tarefa11.html 
+ */
+
 #include <stdio.h>
 
 #include <math.h>

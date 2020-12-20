@@ -35,7 +35,7 @@ graph_t* make_graph();
 
 void add_waypoint(graph_t* g, point_t position, waypoint_type type);
 
-double minimum_greatest_interval(graph_t* g, point_t origin);
+double minimum_greatest_interval(const graph_t* g, point_t origin);
 
 void destroy_graph(graph_t* g);
 
