@@ -156,4 +156,5 @@ void destroy_spreadsheet(spreadsheet_t* spreadsheet) {
     }
 
     free(spreadsheet->cells);
+    free(spreadsheet);
 }
