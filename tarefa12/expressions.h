@@ -5,7 +5,7 @@
 
 typedef struct expression expression_t;
 
-typedef const expression_t* (*resolve_fn_t)(char col, size_t row, void* ctx);
+typedef const expression_t* (*resolve_fn_t)(void* ctx, char col, size_t row);
 
 expression_t* parse(const char* str);
 int eval(const expression_t* expr, void* context, resolve_fn_t resolve);

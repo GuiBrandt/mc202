@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <limits.h>
 #include <string.h>
 #include <assert.h>
 
@@ -137,6 +138,7 @@ expression_t* parse(const char* str) {
     }
     
     fclose(input);
+
     return expr;
 }
 
@@ -150,7 +152,12 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
         case REFERENCE: {
             char column = expr->reference.column;
             size_t row = expr->reference.row;
-            const expression_t* referenced = resolve(column, row, context);
+            const expression_t* referenced = resolve(context, column, row);
+
+            if (referenced == NULL) {
+                return INT_MIN;
+            }
+
             return eval(referenced, context, resolve);
         }
 
@@ -161,6 +168,10 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
 
             int lvalue = eval(left, context, resolve),
                 rvalue = eval(right, context, resolve);
+
+            if (lvalue == INT_MIN || rvalue == INT_MIN) {
+                return INT_MIN;
+            }
 
             return lvalue + sign * rvalue;
         }
@@ -221,20 +232,9 @@ void syntax_tree(expression_t* expr) {
     }
 }
 
-const expression_t* resolve_simple(char column, size_t row, void* context) {
+const expression_t* resolve_simple(void* context, char column, size_t row) {
     expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
     expr->type = SIGNED_INT;
     expr->value = (int) row;
     return expr;
-}
-
-int main() {
-    char* str;
-    scanf("%m[^\n]", &str);
-    expression_t* expr = parse(str);
-    free(str);
-    syntax_tree(expr);
-    printf("= %d\n", eval(expr, NULL, resolve_simple));
-    destroy_expression(expr);
-    return 0;
 }
