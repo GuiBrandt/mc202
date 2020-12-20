@@ -140,7 +140,7 @@ expression_t* parse(const char* str) {
     return expr;
 }
 
-int eval(const expression_t* expr, resolve_fn_t resolve) {
+int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
     assert(expr != NULL);
 
     switch (expr->type) {
@@ -150,15 +150,19 @@ int eval(const expression_t* expr, resolve_fn_t resolve) {
         case REFERENCE: {
             char column = expr->reference.column;
             size_t row = expr->reference.row;
-            const expression_t* referenced = resolve(column, row);
-            return eval(referenced, resolve);
+            const expression_t* referenced = resolve(column, row, context);
+            return eval(referenced, context, resolve);
         }
 
         case ARITHMETIC: {
             int sign = expr->arithmetic.sign;
             const expression_t* left = expr->arithmetic.left;
             const expression_t* right = expr->arithmetic.right;
-            return eval(left, resolve) + sign * eval(right, resolve);
+
+            int lvalue = eval(left, context, resolve),
+                rvalue = eval(right, context, resolve);
+
+            return lvalue + sign * rvalue;
         }
 
         default:
@@ -217,7 +221,7 @@ void syntax_tree(expression_t* expr) {
     }
 }
 
-const expression_t* resolve_simple(char column, size_t row) {
+const expression_t* resolve_simple(char column, size_t row, void* context) {
     expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
     expr->type = SIGNED_INT;
     expr->value = (int) row;
@@ -230,7 +234,7 @@ int main() {
     expression_t* expr = parse(str);
     free(str);
     syntax_tree(expr);
-    printf("= %d\n", eval(expr, resolve_simple));
+    printf("= %d\n", eval(expr, NULL, resolve_simple));
     destroy_expression(expr);
     return 0;
 }

@@ -5,10 +5,10 @@
 
 typedef struct expression expression_t;
 
-typedef const expression_t* (*resolve_fn_t)(char column, size_t row);
+typedef const expression_t* (*resolve_fn_t)(char col, size_t row, void* ctx);
 
 expression_t* parse(const char* str);
-int eval(const expression_t* expr, resolve_fn_t resolve);
+int eval(const expression_t* expr, void* context, resolve_fn_t resolve);
 void destroy_expression(expression_t* expr);
 
 #endif // __EXPRESSIONS_H__
