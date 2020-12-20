@@ -1,3 +1,5 @@
+#define _GNU_SOURCE // fmemopen
+
 #include "expressions.h"
 
 #include <stdio.h>
@@ -6,6 +8,7 @@
 #include <limits.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "xmalloc.h"
 
@@ -33,6 +36,34 @@ struct expression {
     };
 };
 
+expression_t* make_int_expr(int value) {
+    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
+    expr->type = SIGNED_INT;
+    expr->value = value;
+    return expr;
+}
+
+expression_t* make_reference_expr(char column, size_t row) {
+    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
+    expr->type = REFERENCE;
+    expr->reference.column = column;
+    expr->reference.row = row;
+    return expr;
+}
+
+expression_t* make_arithmetic_expr(
+    char op,
+    expression_t* left,
+    expression_t* right
+) {
+    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
+    expr->type = ARITHMETIC;
+    expr->arithmetic.sign = op == '+' ? 1 : -1;
+    expr->arithmetic.left = left;
+    expr->arithmetic.right = right;
+    return expr;
+}
+
 expression_t* parse_int(FILE* input) {
     int value;
     int read = fscanf(input, " %d ", &value);
@@ -41,10 +72,7 @@ expression_t* parse_int(FILE* input) {
         return NULL;
     }
 
-    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
-    expr->type = SIGNED_INT;
-    expr->value = value;
-    return expr;
+    return make_int_expr(value);
 }
 
 expression_t* parse_reference(FILE* input) {
@@ -57,11 +85,7 @@ expression_t* parse_reference(FILE* input) {
         return NULL;
     }
 
-    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
-    expr->type = REFERENCE;
-    expr->reference.column = column;
-    expr->reference.row = row;
-    return expr;
+    return make_reference_expr(column, row);
 }
 
 expression_t* parse_arithmetic(FILE* input);
@@ -94,7 +118,6 @@ expression_t* parse_value(FILE* input) {
 }
 
 expression_t* parse_arithmetic(FILE* input) {
-    long pos = ftell(input);
     expression_t *left, *right;
     
     left = parse_value(input);
@@ -117,16 +140,21 @@ expression_t* parse_arithmetic(FILE* input) {
         return NULL;
     }
 
-    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
-    expr->type = ARITHMETIC;
-    expr->arithmetic.sign = op == '+' ? 1 : -1;
-    expr->arithmetic.left = left;
-    expr->arithmetic.right = right;
-    return expr;
+    return make_arithmetic_expr(op, left, right);
+}
+
+expression_t* pure(int value) {
+    return make_int_expr(value);
 }
 
 expression_t* parse(const char* str) {
     FILE* input = fmemopen((char*) str, strlen(str), "r");
+
+    if (input == NULL) {
+        fprintf(stderr, "Erro fatal: fmemopen falhou com código %d", errno);
+        exit(-1);
+    }
+
     expression_t* expr;
     
     char c = fgetc(input);
