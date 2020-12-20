@@ -104,10 +104,8 @@ double d2(point_t a, point_t b) {
  * 
  * @param g o grafo.
  * @param edges o vetor de saída das arestas.
- * 
- * @return o número de arestas construídas.
  */
-int build_all_edges(const graph_t* g, edge* edges) {
+void build_all_edges(const graph_t* g, edge* edges) {
     int k = 0;
 
     for (int i = 0; i < g->size; i++) {
@@ -122,8 +120,6 @@ int build_all_edges(const graph_t* g, edge* edges) {
             k++;
         }
     }
-    
-    return k;
 }
 
 /**
@@ -174,7 +170,7 @@ static int compare_edges(const void* a, const void* b) {
  * @param g o grafo.
  * @param start o índice do vértice inicial no grafo.
  * @param n_edges o número de arestas na lista.
- * @param edges lista ordenada de arestas no grafo.
+ * @param edges lista de arestas no grafo.
  * 
  * @return o índice da última (i.e. a maior) aresta adicionada.
  */
@@ -184,21 +180,23 @@ int add_edges_until_find_lugia(
     int n_edges,
     edge* edges
 ) {
+    qsort(edges, n_edges, sizeof(edge), compare_edges);
+
     disjoint_set_t* ds = make_disjoint_set(g->size);
 
     for (int i = 0; i < n_edges; i++) {
         edge e = edges[i];
 
-        merge(ds, e.a, e.b);
+        disjoint_set_merge(ds, e.a, e.b);
 
         waypoint_t w_a = g->waypoints[e.a],
                     w_b = g->waypoints[e.b];
 
         if (w_a.type == LUGIA || w_b.type == LUGIA) {
-            mark(ds, e.a);
+            disjoint_set_mark(ds, e.a);
         }
 
-        if (marked(ds, find(ds, start))) {
+        if (disjoint_set_marked(ds, disjoint_set_find(ds, start))) {
             destroy_disjoint_set(ds);
             return i;
         }
@@ -223,7 +221,6 @@ graph_t* make_graph() {
     return g;
 }
 
-
 // Tempo: O(1) amortizado
 void add_waypoint(graph_t* g, point_t position, waypoint_type type) {
     if (++g->size > g->capacity) {
@@ -247,9 +244,11 @@ void add_waypoint(graph_t* g, point_t position, waypoint_type type) {
 double minimum_greatest_interval(const graph_t* g, point_t origin) {
     int start = find_node(g, origin);
 
-    edge* edges = (edge*) xmalloc(sizeof(edge) * g->size * g->size);
-    int n_edges = build_all_edges(g, edges);
-    qsort(edges, n_edges, sizeof(edge), compare_edges);
+    // Alocamos C(n, 2) = (n^2 - n) / 2 arestas, referente ao número de arestas
+    // únicas no grafo completo não-direcionado.
+    int n_edges = g->size * (g->size - 1) / 2;
+    edge* edges = (edge*) xmalloc(sizeof(edge) * n_edges);
+    build_all_edges(g, edges);
 
     int i_best = add_edges_until_find_lugia(g, start, n_edges, edges);
     double best = edges[i_best].weight;
