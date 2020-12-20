@@ -76,7 +76,7 @@ inline extern size_t min2(size_t a, size_t b) {
  * @return o menor valor.
  */
 inline extern size_t min3(size_t a, size_t b, size_t c) {
-    return a < b ? min2(a, c) : min2(b, c);
+    return min2(min2(a, b), c);
 }
 
 /**

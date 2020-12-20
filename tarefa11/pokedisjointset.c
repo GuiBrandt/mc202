@@ -67,5 +67,7 @@ void merge(disjoint_set_t* ds, int a, int b) {
 
 void destroy_disjoint_set(disjoint_set_t* ds) {
     free(ds->parents);
+    free(ds->sizes);
+    free(ds->marks);
     free(ds);
 }
