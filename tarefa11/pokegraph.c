@@ -157,9 +157,12 @@ double minimum_greatest_interval(graph_t* g, point_t origin) {
         }
     }
 
-    destroy_disjoint_set(ds);
+    double best = all_pairs_edges[i].weight;
 
-    return sqrt(all_pairs_edges[i].weight);
+    destroy_disjoint_set(ds);
+    free(all_pairs_edges);
+
+    return sqrt(best);
 }
 
 void destroy_graph(graph_t* g) {
