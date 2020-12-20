@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include <limits.h>
 #include <assert.h>
 
 #include "spreadsheet.h"
@@ -22,8 +23,16 @@ int main() {
     int read;
     while ((read = scanf("%c %c%lu ", &op, &col, &row)) > 0) {
         if (op == 'G') {
+            printf("%c%lu: ", col, row);
+
             int value = spreadsheet_eval(spreadsheet, col, row);
-            printf("%c%lu: %d\n", col, row, value);
+            if (value != INT_MIN) {
+                printf("%d", value);
+            } else {
+                printf("#ERRO#");
+            }
+
+            printf("\n");
         } else {
             assert(op == 'S');
 

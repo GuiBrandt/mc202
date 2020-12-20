@@ -2,6 +2,7 @@
 
 #include "expressions.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -23,11 +24,7 @@ struct expression {
 
     union {
         int value;
-        
-        struct {
-            char column;
-            size_t row;
-        } reference;
+        reference_t reference;
 
         struct {
             int sign;
@@ -46,7 +43,7 @@ expression_t* make_int_expr(int value) {
 expression_t* make_reference_expr(char column, size_t row) {
     expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
     expr->type = REFERENCE;
-    expr->reference.column = column;
+    expr->reference.col = column;
     expr->reference.row = row;
     return expr;
 }
@@ -178,9 +175,7 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
             return expr->value;
 
         case REFERENCE: {
-            char column = expr->reference.column;
-            size_t row = expr->reference.row;
-            const expression_t* referenced = resolve(context, column, row);
+            const expression_t* referenced = resolve(context, expr->reference);
 
             if (referenced == NULL) {
                 return INT_MIN;
@@ -209,6 +204,30 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
     }
 }
 
+int dependencies(const expression_t* expr, size_t buf_len, reference_t* buf) {
+    assert(expr != NULL);
+
+    switch (expr->type) {
+        case REFERENCE: {
+            buf[0] = expr->reference;
+            return 1;
+        }
+
+        case ARITHMETIC: {
+            const expression_t* left = expr->arithmetic.left;
+            const expression_t* right = expr->arithmetic.right;
+
+            int n = dependencies(left, buf_len, buf);
+            n += dependencies(right, buf_len - n, buf + n);
+
+            return n;
+        }
+
+        default:
+            return 0;
+    }
+}
+
 void destroy_expression(expression_t* expr) {
     if (expr == NULL) {
         return;
@@ -229,7 +248,7 @@ void syntax_tree_rec(expression_t* expr, int depth, int nested) {
             break;
 
         case REFERENCE:
-            printf("%c%lu\n", expr->reference.column, expr->reference.row);
+            printf("%c%lu\n", expr->reference.col, expr->reference.row);
             break;
         
         case ARITHMETIC:
