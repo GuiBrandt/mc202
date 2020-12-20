@@ -253,14 +253,7 @@ double minimum_greatest_interval(const graph_t* g, point_t origin) {
     int i_best = add_edges_until_find_lugia(g, start, n_edges, edges);
     double best = edges[i_best].weight;
 
-<<<<<<< HEAD
-    double best = all_pairs_edges[i].weight;
-
-    destroy_disjoint_set(ds);
-    free(all_pairs_edges);
-=======
     free(edges);
->>>>>>> wip
 
     return sqrt(best);
 }
