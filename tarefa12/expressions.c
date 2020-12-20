@@ -9,7 +9,7 @@
 #include "xmalloc.h"
 
 typedef enum expression_type {
-    VALUE,
+    SIGNED_INT,
     REFERENCE,
     ARITHMETIC
 } expression_type;
@@ -41,7 +41,7 @@ expression_t* parse_int(FILE* input) {
     }
 
     expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
-    expr->type = VALUE;
+    expr->type = SIGNED_INT;
     expr->value = value;
     return expr;
 }
@@ -141,7 +141,29 @@ expression_t* parse(const char* str) {
 }
 
 int eval(const expression_t* expr, resolve_fn_t resolve) {
+    assert(expr != NULL);
 
+    switch (expr->type) {
+        case SIGNED_INT:
+            return expr->value;
+
+        case REFERENCE: {
+            char column = expr->reference.column;
+            size_t row = expr->reference.row;
+            const expression_t* referenced = resolve(column, row);
+            return eval(referenced, resolve);
+        }
+
+        case ARITHMETIC: {
+            int sign = expr->arithmetic.sign;
+            const expression_t* left = expr->arithmetic.left;
+            const expression_t* right = expr->arithmetic.right;
+            return eval(left, resolve) + sign * eval(right, resolve);
+        }
+
+        default:
+            __builtin_unreachable();
+    }
 }
 
 void destroy_expression(expression_t* expr) {
@@ -159,7 +181,7 @@ void destroy_expression(expression_t* expr) {
 
 void syntax_tree_rec(expression_t* expr, int depth, int nested) {
     switch (expr->type) {
-        case VALUE:
+        case SIGNED_INT:
             printf("%d\n", expr->value);
             break;
 
@@ -195,9 +217,20 @@ void syntax_tree(expression_t* expr) {
     }
 }
 
+const expression_t* resolve_simple(char column, size_t row) {
+    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
+    expr->type = SIGNED_INT;
+    expr->value = (int) row;
+    return expr;
+}
+
 int main() {
-    expression_t* expr = parse("= ( 1 - ( A1 + ( B2 - C4 ) ) ) + 1");
+    char* str;
+    scanf("%m[^\n]", &str);
+    expression_t* expr = parse(str);
+    free(str);
     syntax_tree(expr);
+    printf("= %d\n", eval(expr, resolve_simple));
     destroy_expression(expr);
     return 0;
 }

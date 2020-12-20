@@ -2,11 +2,6 @@
 
 #include "expressions.h"
 
-typedef enum cell_type {
-    VALUE,
-    EXPRESSION
-} cell_type;
-
 typedef struct cell {
     expression_t* expression;
 } cell;
