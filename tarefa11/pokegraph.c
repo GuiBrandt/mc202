@@ -167,10 +167,12 @@ static int compare_edges(const void* a, const void* b) {
  * estrutura de união-busca. Efetivamente, o algoritmo toma tempo O(|E|), visto
  * que α(|V|) é menor que 5 para qualquer valor razoável de |V|.
  * 
+ * P.S.: Algoritmo de Kruskal para minimum spanning tree.
+ * 
  * @param g o grafo.
  * @param start o índice do vértice inicial no grafo.
  * @param n_edges o número de arestas na lista.
- * @param edges lista de arestas no grafo.
+ * @param edges lista ordenada de arestas no grafo.
  * 
  * @return o índice da última (i.e. a maior) aresta adicionada.
  */
@@ -180,8 +182,6 @@ int add_edges_until_find_lugia(
     int n_edges,
     edge* edges
 ) {
-    qsort(edges, n_edges, sizeof(edge), compare_edges);
-
     disjoint_set_t* ds = make_disjoint_set(g->size);
 
     for (int i = 0; i < n_edges; i++) {
@@ -236,8 +236,8 @@ void add_waypoint(graph_t* g, point_t position, waypoint_type type) {
     g->waypoints[g->size - 1] = (waypoint_t) { position, type };
 }
 
-// Tempo: O(|E| log |E|) = O(|E| log |V|), visto que |E| = |V|^2. Referente ao
-//        tempo de ordenar as arestas por tamanho, que domina as demais
+// Tempo: O(|E| log |E|) = O(|V|^2 log |V|), visto que |E| = |V|^2. Referente
+//        ao tempo de ordenar as arestas por tamanho, que domina as demais
 //        operações.
 //
 // Espaço: O(|E|) = O(|V|^2)
@@ -250,6 +250,7 @@ double minimum_greatest_interval(const graph_t* g, point_t origin) {
     edge* edges = (edge*) xmalloc(sizeof(edge) * n_edges);
     build_all_edges(g, edges);
 
+    qsort(edges, n_edges, sizeof(edge), compare_edges);
     int i_best = add_edges_until_find_lugia(g, start, n_edges, edges);
     double best = edges[i_best].weight;
 
