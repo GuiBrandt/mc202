@@ -1,6 +1,10 @@
 {
 	"folders": [
 		{
+			"name": "Editor de Planilha",
+			"path": "tarefa12"
+		},
+		{
 			"name": "Pokemon Teclado & Mouse",
 			"path": "tarefa11"
 		},
