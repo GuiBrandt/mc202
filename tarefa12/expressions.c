@@ -1,4 +1,11 @@
-#define _GNU_SOURCE // fmemopen
+/**
+ * @file expressions.c
+ * @author Guilherme G. Brandt (235970)
+ * 
+ * @brief Implementação do ADT de expressão de célula da planilha.
+ */
+
+#define _GNU_SOURCE // Para o fmemopen
 
 #include "expressions.h"
 
@@ -13,17 +20,28 @@
 
 #include "xmalloc.h"
 
+//=============================================================================
+// DEFINIÇÕES
+//=============================================================================
+
+/**
+ * @brief Enumeração de tipos de expressão.
+ */
 typedef enum expression_type {
     SIGNED_INT,
     REFERENCE,
     ARITHMETIC
 } expression_type;
 
+/**
+ * @brief Estrutura interna de uma expressão.
+ */
 struct expression {
     expression_type type;
 
     union {
         int value;
+
         reference_t reference;
 
         struct {
@@ -33,6 +51,17 @@ struct expression {
     };
 };
 
+//=============================================================================
+// IMPLEMENTAÇÃO (Auxiliares)
+//=============================================================================
+
+/**
+ * @brief Constrói uma expressão numérica com um valor dado.
+ * 
+ * @param value valor da expressão.
+ * 
+ * @return uma expressão.
+ */
 expression_t* make_int_expr(int value) {
     expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
     expr->type = SIGNED_INT;
@@ -40,6 +69,14 @@ expression_t* make_int_expr(int value) {
     return expr;
 }
 
+/**
+ * @brief Constrói uma expressão de referência para uma célula na planilha.
+ * 
+ * @param column nome da coluna (A-Z).
+ * @param row número da linha.
+ * 
+ * @return uma expressão.
+ */
 expression_t* make_reference_expr(char column, size_t row) {
     expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
     expr->type = REFERENCE;
@@ -48,6 +85,15 @@ expression_t* make_reference_expr(char column, size_t row) {
     return expr;
 }
 
+/**
+ * @brief Constrói uma expressão aritmética para um operador e operandos dados.
+ * 
+ * @param op operador, "+" ou "-".
+ * @param left operando esquerdo.
+ * @param right operando direito.
+ * 
+ * @return uma expressão.
+ */
 expression_t* make_arithmetic_expr(
     char op,
     expression_t* left,
@@ -61,6 +107,17 @@ expression_t* make_arithmetic_expr(
     return expr;
 }
 
+//=============================================================================
+// IMPLEMENTAÇÃO (Parser)
+//=============================================================================
+
+/**
+ * @brief Lê uma expressão numérica de uma stream.
+ * 
+ * @param input stream de entrada.
+ * 
+ * @return a expressão lida ou NULL em caso de falha.
+ */
 expression_t* parse_int(FILE* input) {
     int value;
     int read = fscanf(input, " %d ", &value);
@@ -72,6 +129,13 @@ expression_t* parse_int(FILE* input) {
     return make_int_expr(value);
 }
 
+/**
+ * @brief Lê uma expressão de referência de uma stream.
+ * 
+ * @param input stream de entrada.
+ * 
+ * @return a expressão de lida ou NULL em caso de falha.
+ */
 expression_t* parse_reference(FILE* input) {
     char column;
     size_t row;
@@ -87,6 +151,13 @@ expression_t* parse_reference(FILE* input) {
 
 expression_t* parse_arithmetic(FILE* input);
 
+/**
+ * @brief Lê uma expressão entre parênteses de uma stream.
+ * 
+ * @param input stream de entrada.
+ * 
+ * @return a expressão lida ou NULL em caso de falha.
+ */
 expression_t* parse_parens(FILE* input) {
     char c = fgetc(input);
 
@@ -107,6 +178,14 @@ expression_t* parse_parens(FILE* input) {
     return expr;
 }
 
+/**
+ * @brief Lê uma expressão genérica (numérica, de referência ou entre
+ *        parênteses).
+ * 
+ * @param input stream de entrada.
+ * 
+ * @return a expressão lida ou NULL em caso de falha.
+ */
 expression_t* parse_value(FILE* input) {
     expression_t* expr = parse_int(input);
     if (expr == NULL) expr = parse_reference(input);
@@ -114,6 +193,13 @@ expression_t* parse_value(FILE* input) {
     return expr;
 }
 
+/**
+ * @brief Lê uma expressão aritmética de uma stream.
+ * 
+ * @param input stream de entrada.
+ * 
+ * @return a expressão lida ou NULL em caso de falha.
+ */
 expression_t* parse_arithmetic(FILE* input) {
     expression_t *left, *right;
     
@@ -133,18 +219,28 @@ expression_t* parse_arithmetic(FILE* input) {
     right = parse_value(input);
 
     if (right == NULL) {
-        destroy_expression(left);
+        destroy_expr(left);
         return NULL;
     }
 
     return make_arithmetic_expr(op, left, right);
 }
 
-expression_t* pure(int value) {
+//=============================================================================
+// IMPLEMENTAÇÃO (Contrato)
+//=============================================================================
+
+expression_t* const_expr(int value) {
     return make_int_expr(value);
 }
 
-expression_t* parse(const char* str) {
+expression_t* parse_expr(const char* str) {
+    // Ao invés de usar a string diretamente, usamos ela como uma stream.
+    // Isso é conveniente porque permite usar as funções de scan da stdlib
+    // junto do mecanismo automatico de deslocamento do ponteiro de leitura,
+    // que não seria possível com sscanf por exemplo. Também permite que as
+    // funções do parser aceitem arquivos como argumento e sejam mais flexíveis
+    // em relação a I/O.
     FILE* input = fmemopen((char*) str, strlen(str), "r");
 
     if (input == NULL) {
@@ -167,7 +263,7 @@ expression_t* parse(const char* str) {
     return expr;
 }
 
-int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
+int eval_expr(const expression_t* expr, void* context, resolve_fn_t resolve) {
     assert(expr != NULL);
 
     switch (expr->type) {
@@ -181,7 +277,7 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
                 return INT_MIN;
             }
 
-            return eval(referenced, context, resolve);
+            return eval_expr(referenced, context, resolve);
         }
 
         case ARITHMETIC: {
@@ -189,8 +285,8 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
             const expression_t* left = expr->arithmetic.left;
             const expression_t* right = expr->arithmetic.right;
 
-            int lvalue = eval(left, context, resolve),
-                rvalue = eval(right, context, resolve);
+            int lvalue = eval_expr(left, context, resolve),
+                rvalue = eval_expr(right, context, resolve);
 
             if (lvalue == INT_MIN || rvalue == INT_MIN) {
                 return INT_MIN;
@@ -204,7 +300,12 @@ int eval(const expression_t* expr, void* context, resolve_fn_t resolve) {
     }
 }
 
-int dependencies(const expression_t* expr, size_t buf_len, reference_t* buf) {
+int expr_dependencies(
+    const expression_t* expr,
+    size_t buf_len,
+    reference_t* buf
+) {
+    assert(buf_len > 0);
     assert(expr != NULL);
 
     switch (expr->type) {
@@ -217,8 +318,8 @@ int dependencies(const expression_t* expr, size_t buf_len, reference_t* buf) {
             const expression_t* left = expr->arithmetic.left;
             const expression_t* right = expr->arithmetic.right;
 
-            int n = dependencies(left, buf_len, buf);
-            n += dependencies(right, buf_len - n, buf + n);
+            int n = expr_dependencies(left, buf_len, buf);
+            n += expr_dependencies(right, buf_len - n, buf + n);
 
             return n;
         }
@@ -228,60 +329,15 @@ int dependencies(const expression_t* expr, size_t buf_len, reference_t* buf) {
     }
 }
 
-void destroy_expression(expression_t* expr) {
+void destroy_expr(expression_t* expr) {
     if (expr == NULL) {
         return;
     }
 
     if (expr->type == ARITHMETIC) {
-        destroy_expression(expr->arithmetic.left);
-        destroy_expression(expr->arithmetic.right);
+        destroy_expr(expr->arithmetic.left);
+        destroy_expr(expr->arithmetic.right);
     }
 
     free(expr);
-}
-
-void syntax_tree_rec(expression_t* expr, int depth, int nested) {
-    switch (expr->type) {
-        case SIGNED_INT:
-            printf("%d\n", expr->value);
-            break;
-
-        case REFERENCE:
-            printf("%c%lu\n", expr->reference.col, expr->reference.row);
-            break;
-        
-        case ARITHMETIC:
-            printf("%c\n", expr->arithmetic.sign == 1 ? '+' : '-');
-
-            for (int i = 0; i < nested; i++) printf("│ ");
-            for (int i = nested; i < depth; i++) printf("  ");
-            printf("├ ");
-            syntax_tree_rec(expr->arithmetic.left, depth + 1, nested + 1);
-            
-            for (int i = 0; i < nested; i++) printf("│ ");
-            for (int i = nested; i < depth; i++) printf("  ");
-            printf("└ ");
-            syntax_tree_rec(expr->arithmetic.right, depth + 1, nested);
-
-            break;
-
-        default:
-            __builtin_unreachable();
-    }
-}
-
-void syntax_tree(expression_t* expr) {
-    if (expr == NULL) {
-        printf("(NULL)\n");
-    } else {
-        syntax_tree_rec(expr, 0, 0);
-    }
-}
-
-const expression_t* resolve_simple(void* context, char column, size_t row) {
-    expression_t* expr = (expression_t*) xmalloc(sizeof(expression_t));
-    expr->type = SIGNED_INT;
-    expr->value = (int) row;
-    return expr;
 }

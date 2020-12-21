@@ -26,6 +26,7 @@ int main() {
             printf("%c%lu: ", col, row);
 
             int value = spreadsheet_eval(spreadsheet, col, row);
+            
             if (value != INT_MIN) {
                 printf("%d", value);
             } else {
